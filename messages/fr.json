@@ -1,0 +1,79 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur est survenue",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "search": "Rechercher",
+    "noResults": "Aucun résultat"
+  },
+  "nav": {
+    "home": "Accueil",
+    "products": "Produits",
+    "cart": "Panier",
+    "contact": "Contact"
+  },
+  "storefront": {
+    "title": "Notre boutique",
+    "productsTitle": "Nos produits",
+    "addToCart": "Ajouter au panier",
+    "outOfStock": "Rupture de stock",
+    "cart": {
+      "title": "Mon panier",
+      "empty": "Votre panier est vide",
+      "total": "Total",
+      "checkout": "Commander",
+      "continueShopping": "Continuer mes achats"
+    },
+    "checkout": {
+      "title": "Passer commande",
+      "customerInfo": "Vos informations",
+      "pickupSlot": "Choisir un créneau de retrait",
+      "summary": "Résumé de commande",
+      "confirm": "Confirmer et payer",
+      "cgvAccept": "J'accepte les conditions générales de vente"
+    },
+    "order": {
+      "confirmed": "Commande confirmée",
+      "tracking": "Suivi de commande",
+      "status": {
+        "NEW": "Nouvelle",
+        "CONFIRMED": "Confirmée",
+        "IN_PREPARATION": "En préparation",
+        "READY": "Prête",
+        "PICKED_UP": "Retirée",
+        "CANCELLED": "Annulée"
+      }
+    }
+  },
+  "auth": {
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "email": "Email",
+    "password": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "resetPassword": "Réinitialiser le mot de passe"
+  },
+  "admin": {
+    "dashboard": "Tableau de bord",
+    "orders": "Commandes",
+    "products": "Produits",
+    "ingredients": "Ingrédients",
+    "recipes": "Recettes",
+    "customers": "Clients",
+    "settings": "Paramètres",
+    "cms": "Vitrine",
+    "invoices": "Factures"
+  },
+  "errors": {
+    "required": "Ce champ est requis",
+    "invalidEmail": "Email invalide",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
+    "networkError": "Erreur réseau, veuillez réessayer"
+  }
+}

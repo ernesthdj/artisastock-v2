@@ -1,0 +1,673 @@
+// prisma/schema.prisma — ArtisaStock V2
+// Auteur : Agent #4 — Backend Developer
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════
+// ENUMS
+// ═══════════════════════════════════════════════
+
+enum Plan {
+  FREE_TRIAL
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum OrderStatus {
+  NEW
+  IN_PREPARATION
+  READY
+  PICKED_UP
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  CANCELLED
+}
+
+enum VatRate {
+  FOOD_6
+  STANDARD_21
+}
+
+enum UnitOfMeasure {
+  KG
+  G
+  L
+  ML
+  PIECE
+  DOZEN
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum BlockType {
+  HERO
+  TEXT
+  IMAGE
+  GALLERY
+  PRODUCTS
+  CONTACT
+  TESTIMONIALS
+  MAP
+  CUSTOM_HTML
+}
+
+enum NotificationType {
+  ORDER_NEW
+  ORDER_READY
+  STOCK_ALERT
+  REGISTRATION
+  PASSWORD_RESET
+  INVOICE_GENERATED
+}
+
+enum GdprRequestType {
+  ACCESS
+  DELETION
+}
+
+enum GdprRequestStatus {
+  PENDING
+  PROCESSED
+  REJECTED
+}
+
+// ═══════════════════════════════════════════════
+// TENANT & AUTH
+// ═══════════════════════════════════════════════
+
+model Tenant {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  plan         Plan      @default(FREE_TRIAL)
+  locale       String    @default("fr")
+  vatNumber    String?
+  address      Json?
+  phone        String?
+  email        String?
+  description  String?
+  openingHours Json?
+  settings     Json      @default("{}")
+  trialEndsAt  DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  users         User[]
+  roles         Role[]
+  ingredients   Ingredient[]
+  suppliers     Supplier[]
+  recipes       Recipe[]
+  products      Product[]
+  orders        Order[]
+  customers     Customer[]
+  invoices      Invoice[]
+  pages         Page[]
+  siteConfig    SiteConfig?
+  pickupSlots   PickupSlot[]
+  closedDays    ClosedDay[]
+  notifications NotificationLog[]
+  gdprRequests  GdprRequest[]
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+model User {
+  id              String    @id @default(cuid())
+  tenantId        String
+  email           String
+  passwordHash    String
+  firstName       String
+  lastName        String
+  locale          String    @default("fr")
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+  isActive        Boolean   @default(true)
+  lastLoginAt     DateTime?
+  onboardingDone  Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role        Role?            @relation(fields: [roleId], references: [id])
+  roleId      String?
+  sessions    Session[]
+  invitations UserInvitation[] @relation("InvitedBy")
+
+  @@unique([email, tenantId])
+  @@index([tenantId])
+  @@index([email])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  userAgent    String?
+  ipAddress    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([refreshToken])
+}
+
+model UserInvitation {
+  id          String    @id @default(cuid())
+  tenantId    String
+  email       String
+  roleId      String?
+  token       String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  invitedById String
+  createdAt   DateTime  @default(now())
+
+  invitedBy User @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@index([token])
+  @@index([tenantId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([token])
+}
+
+// ═══════════════════════════════════════════════
+// RBAC
+// ═══════════════════════════════════════════════
+
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  permissions Json     // Array de strings : ["ingredients.read", ...]
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users  User[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+// ═══════════════════════════════════════════════
+// ERP — INGREDIENTS & STOCK
+// ═══════════════════════════════════════════════
+
+model Ingredient {
+  id             String        @id @default(cuid())
+  tenantId       String
+  name           String
+  category       String?
+  unit           UnitOfMeasure
+  priceUnit      Decimal       @db.Decimal(10, 4)
+  pricePack      Decimal?      @db.Decimal(10, 4)
+  packSize       Decimal?      @db.Decimal(10, 4)
+  stock          Decimal       @default(0) @db.Decimal(10, 4)
+  alertThreshold Decimal       @default(0) @db.Decimal(10, 4)
+  isAlertActive  Boolean       @default(true)
+  supplierId     String?
+  supplierRef    String?
+  notes          String?
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier          Supplier?          @relation(fields: [supplierId], references: [id])
+  recipeIngredients RecipeIngredient[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, category])
+  @@index([tenantId, isActive])
+  @@index([supplierId])
+}
+
+// ═══════════════════════════════════════════════
+// ERP — FOURNISSEURS
+// ═══════════════════════════════════════════════
+
+model Supplier {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  address     Json?
+  phone       String?
+  email       String?
+  website     String?
+  vatNumber   String?
+  contactName String?
+  notes       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ingredients Ingredient[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+}
+
+// ═══════════════════════════════════════════════
+// ERP — RECETTES & FICHES TECHNIQUES
+// ═══════════════════════════════════════════════
+
+model Recipe {
+  id             String    @id @default(cuid())
+  tenantId       String
+  name           String
+  description    String?
+  category       String?
+  imageUrl       String?
+  servings       Int       @default(1)
+  prepTime       Int?
+  cookTime       Int?
+  steps          Json      @default("[]")
+  costPerServing Decimal?  @db.Decimal(10, 4)
+  totalCost      Decimal?  @db.Decimal(10, 4)
+  marginCoeff    Decimal   @default(2.5) @db.Decimal(5, 2)
+  vatRate        VatRate   @default(FOOD_6)
+  version        Int       @default(1)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ingredients RecipeIngredient[]
+  product     Product?
+  versions    RecipeVersion[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, category])
+  @@index([tenantId, isActive])
+}
+
+model RecipeIngredient {
+  id           String        @id @default(cuid())
+  recipeId     String
+  ingredientId String
+  quantity     Decimal       @db.Decimal(10, 4)
+  unit         UnitOfMeasure
+
+  recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@unique([recipeId, ingredientId])
+  @@index([recipeId])
+  @@index([ingredientId])
+}
+
+model RecipeVersion {
+  id             String   @id @default(cuid())
+  recipeId       String
+  version        Int
+  name           String
+  ingredients    Json
+  steps          Json
+  servings       Int
+  totalCost      Decimal? @db.Decimal(10, 4)
+  costPerServing Decimal? @db.Decimal(10, 4)
+  createdAt      DateTime @default(now())
+  createdById    String?
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, version])
+  @@index([recipeId])
+}
+
+// ═══════════════════════════════════════════════
+// ERP — PRODUITS FINIS
+// ═══════════════════════════════════════════════
+
+model Product {
+  id              String    @id @default(cuid())
+  tenantId        String
+  recipeId        String?   @unique
+  name            String
+  slug            String
+  description     String?
+  descriptionLong String?
+  category        String?
+  images          Json      @default("[]")
+  priceHT         Decimal   @db.Decimal(10, 2)
+  priceTTC        Decimal   @db.Decimal(10, 2)
+  vatRate         VatRate   @default(FOOD_6)
+  allergens       Json      @default("[]")
+  isVisible       Boolean   @default(true)
+  isClickCollect  Boolean   @default(true)
+  stockType       String    @default("unlimited")
+  stockQuantity   Int?
+  sortOrder       Int       @default(0)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipe     Recipe?     @relation(fields: [recipeId], references: [id])
+  orderItems OrderItem[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([tenantId, category])
+  @@index([tenantId, isVisible, isActive])
+}
+
+// ═══════════════════════════════════════════════
+// ERP — COMMANDES
+// ═══════════════════════════════════════════════
+
+model Customer {
+  id              String    @id @default(cuid())
+  tenantId        String
+  email           String
+  firstName       String
+  lastName        String
+  phone           String?
+  locale          String    @default("fr")
+  gdprConsent     Boolean   @default(false)
+  gdprConsentAt   DateTime?
+  isAnonymized    Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  tenantId        String
+  orderNumber     String
+  customerId      String
+  status          OrderStatus @default(NEW)
+  totalHT         Decimal     @db.Decimal(10, 2)
+  totalTVA        Decimal     @db.Decimal(10, 2)
+  totalTTC        Decimal     @db.Decimal(10, 2)
+  pickupSlotStart DateTime
+  pickupSlotEnd   DateTime
+  pickupDate      DateTime
+  stripeSessionId String?
+  stripePaymentId String?
+  paidAt          DateTime?
+  trackingToken   String      @unique @default(cuid())
+  notes           String?
+  statusHistory   Json        @default("[]")
+  cgvAcceptedAt   DateTime
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer    @relation(fields: [customerId], references: [id])
+  items    OrderItem[]
+  invoice  Invoice?
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([customerId])
+  @@index([trackingToken])
+  @@index([stripeSessionId])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  vatRate   VatRate
+  totalHT   Decimal @db.Decimal(10, 2)
+  totalTTC  Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ═══════════════════════════════════════════════
+// ERP — FACTURATION
+// ═══════════════════════════════════════════════
+
+model Invoice {
+  id             String        @id @default(cuid())
+  tenantId       String
+  orderId        String        @unique
+  invoiceNumber  String
+  status         InvoiceStatus @default(ISSUED)
+  issuedAt       DateTime      @default(now())
+  dueAt          DateTime?
+  sellerName     String
+  sellerAddress  Json
+  sellerVat      String
+  buyerName      String
+  buyerEmail     String
+  buyerAddress   Json?
+  totalHT        Decimal       @db.Decimal(10, 2)
+  totalTVA       Decimal       @db.Decimal(10, 2)
+  totalTTC       Decimal       @db.Decimal(10, 2)
+  vatBreakdown   Json
+  lines          Json
+  pdfUrl         String?
+  pdfGeneratedAt DateTime?
+  notes          String?
+  paymentTerms   String?       @default("Payée par carte bancaire")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order  Order  @relation(fields: [orderId], references: [id])
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId])
+  @@index([tenantId, issuedAt])
+  @@index([tenantId, status])
+}
+
+// ═══════════════════════════════════════════════
+// ERP — CRENEAUX DE RETRAIT
+// ═══════════════════════════════════════════════
+
+model PickupSlot {
+  id              String    @id @default(cuid())
+  tenantId        String
+  dayOfWeek       DayOfWeek
+  startTime       String
+  endTime         String
+  slotDuration    Int       @default(30)
+  maxOrders       Int       @default(5)
+  minAdvanceHours Int       @default(24)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, dayOfWeek, isActive])
+}
+
+model ClosedDay {
+  id       String   @id @default(cuid())
+  tenantId String
+  date     DateTime @db.Date
+  reason   String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, date])
+  @@index([tenantId])
+}
+
+// ═══════════════════════════════════════════════
+// CMS — PAGES & BLOCS
+// ═══════════════════════════════════════════════
+
+model Page {
+  id              String    @id @default(cuid())
+  tenantId        String
+  title           String
+  slug            String
+  metaDescription String?
+  ogImage         String?
+  blocks          Json      @default("[]")
+  sortOrder       Int       @default(0)
+  isVisible       Boolean   @default(true)
+  isSystem        Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([tenantId, isVisible])
+}
+
+model SiteConfig {
+  id          String    @id @default(cuid())
+  tenantId    String    @unique
+  template    String    @default("boulangerie")
+  logo        String?
+  favicon     String?
+  colors      Json      @default("{}")
+  fonts       Json      @default("{}")
+  socialLinks Json      @default("{}")
+  customCss   String?
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ═══════════════════════════════════════════════
+// NOTIFICATIONS & LOGS
+// ═══════════════════════════════════════════════
+
+model NotificationLog {
+  id             String           @id @default(cuid())
+  tenantId       String
+  type           NotificationType
+  recipientEmail String
+  subject        String
+  status         String           @default("sent")
+  metadata       Json?
+  sentAt         DateTime         @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, type])
+  @@index([sentAt])
+}
+
+model CookieConsent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  sessionId   String
+  necessary   Boolean  @default(true)
+  analytics   Boolean  @default(false)
+  marketing   Boolean  @default(false)
+  ipAddress   String?
+  userAgent   String?
+  consentedAt DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([tenantId])
+  @@index([sessionId])
+}
+
+model GdprRequest {
+  id          String            @id @default(cuid())
+  tenantId    String
+  customerId  String?
+  email       String
+  type        GdprRequestType
+  status      GdprRequestStatus @default(PENDING)
+  processedAt DateTime?
+  processedBy String?
+  notes       String?
+  createdAt   DateTime          @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+// ═══════════════════════════════════════════════
+// AUDIT LOG
+// ═══════════════════════════════════════════════
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  changes   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, entity])
+  @@index([tenantId, userId])
+  @@index([createdAt])
+}

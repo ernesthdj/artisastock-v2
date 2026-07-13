@@ -1,0 +1,79 @@
+{
+  "common": {
+    "loading": "Laden...",
+    "error": "Er is een fout opgetreden",
+    "save": "Opslaan",
+    "cancel": "Annuleren",
+    "delete": "Verwijderen",
+    "edit": "Bewerken",
+    "back": "Terug",
+    "next": "Volgende",
+    "previous": "Vorige",
+    "search": "Zoeken",
+    "noResults": "Geen resultaten"
+  },
+  "nav": {
+    "home": "Home",
+    "products": "Producten",
+    "cart": "Winkelwagen",
+    "contact": "Contact"
+  },
+  "storefront": {
+    "title": "Onze winkel",
+    "productsTitle": "Onze producten",
+    "addToCart": "Toevoegen aan winkelwagen",
+    "outOfStock": "Uitverkocht",
+    "cart": {
+      "title": "Mijn winkelwagen",
+      "empty": "Uw winkelwagen is leeg",
+      "total": "Totaal",
+      "checkout": "Bestellen",
+      "continueShopping": "Verder winkelen"
+    },
+    "checkout": {
+      "title": "Bestelling plaatsen",
+      "customerInfo": "Uw gegevens",
+      "pickupSlot": "Kies een afhaaltijdslot",
+      "summary": "Bestellingsoverzicht",
+      "confirm": "Bevestigen en betalen",
+      "cgvAccept": "Ik aanvaard de algemene verkoopvoorwaarden"
+    },
+    "order": {
+      "confirmed": "Bestelling bevestigd",
+      "tracking": "Bestelling volgen",
+      "status": {
+        "NEW": "Nieuw",
+        "CONFIRMED": "Bevestigd",
+        "IN_PREPARATION": "In voorbereiding",
+        "READY": "Klaar",
+        "PICKED_UP": "Afgehaald",
+        "CANCELLED": "Geannuleerd"
+      }
+    }
+  },
+  "auth": {
+    "login": "Inloggen",
+    "logout": "Uitloggen",
+    "email": "E-mail",
+    "password": "Wachtwoord",
+    "forgotPassword": "Wachtwoord vergeten?",
+    "resetPassword": "Wachtwoord opnieuw instellen"
+  },
+  "admin": {
+    "dashboard": "Dashboard",
+    "orders": "Bestellingen",
+    "products": "Producten",
+    "ingredients": "Ingrediënten",
+    "recipes": "Recepten",
+    "customers": "Klanten",
+    "settings": "Instellingen",
+    "cms": "Etalage",
+    "invoices": "Facturen"
+  },
+  "errors": {
+    "required": "Dit veld is verplicht",
+    "invalidEmail": "Ongeldig e-mailadres",
+    "passwordTooShort": "Het wachtwoord moet minimaal 8 tekens bevatten",
+    "networkError": "Netwerkfout, probeer opnieuw"
+  }
+}
