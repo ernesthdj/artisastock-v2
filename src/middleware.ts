@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import createMiddleware from 'next-intl/middleware';
-import { verifyAccessToken, extractBearerToken } from '@/lib/auth';
+import { extractBearerToken } from '@/lib/auth';
 
 const LOCALES = ['fr', 'nl'] as const;
 const DEFAULT_LOCALE = 'fr';
@@ -24,6 +24,54 @@ const intlMiddleware = createMiddleware({
   localePrefix: 'always',
 });
 
+// ─── Vérification JWT Edge-compatible (Web Crypto API) ────────────────────────
+interface JwtPayload {
+  userId: string;
+  tenantId: string;
+  email: string;
+  role: string | null;
+  sessionId: string;
+  exp?: number;
+}
+
+function base64UrlDecode(str: string): Uint8Array {
+  const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = b64.padEnd(b64.length + (4 - (b64.length % 4)) % 4, '=');
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+}
+
+async function verifyJwtEdge(token: string, secret: string): Promise<JwtPayload | null> {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const [headerB64, payloadB64, signatureB64] = parts;
+
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+
+    const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
+    const signature = base64UrlDecode(signatureB64);
+
+    const valid = await crypto.subtle.verify('HMAC', key, signature, data);
+    if (!valid) return null;
+
+    const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(payloadB64)));
+
+    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+
+    return payload as JwtPayload;
+  } catch {
+    return null;
+  }
+}
+
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
@@ -42,7 +90,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       return NextResponse.next();
     }
 
-    // Routes protégées — vérification JWT
+    // Routes protégées — vérification JWT (Edge-compatible)
     const token = extractBearerToken(request.headers.get('authorization'));
 
     if (!token) {
@@ -52,24 +100,25 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    try {
-      const payload = verifyAccessToken(token);
+    const jwtSecret = process.env.JWT_SECRET ?? '';
+    const payload = await verifyJwtEdge(token, jwtSecret);
 
-      // Injection des infos dans les headers pour les Route Handlers
-      const requestHeaders = new Headers(request.headers);
-      requestHeaders.set('x-user-id', payload.userId);
-      requestHeaders.set('x-tenant-id', payload.tenantId);
-      requestHeaders.set('x-user-email', payload.email);
-      requestHeaders.set('x-user-role', payload.role ?? '');
-      requestHeaders.set('x-session-id', payload.sessionId);
-
-      return NextResponse.next({ request: { headers: requestHeaders } });
-    } catch {
+    if (!payload) {
       return NextResponse.json(
         { success: false, error: { code: 'TOKEN_INVALID', message: 'Token invalide ou expiré' } },
         { status: 401 }
       );
     }
+
+    // Injection des infos dans les headers pour les Route Handlers
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-user-id', payload.userId);
+    requestHeaders.set('x-tenant-id', payload.tenantId);
+    requestHeaders.set('x-user-email', payload.email);
+    requestHeaders.set('x-user-role', payload.role ?? '');
+    requestHeaders.set('x-session-id', payload.sessionId);
+
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   // ─── Routes pages — gestion i18n ─────────────────────────────────────────

@@ -4,124 +4,143 @@
 
 /* ============================================================
    DESIGN TOKENS — ArtisaStock V2
-   Source of truth : à synchroniser avec tailwind.config.ts
+   Palette : Chocolat · Or · Framboise · Crème
+   Source : ArtisaStock - Refactor ERP.html (Claude Design)
    ============================================================ */
 
 :root {
-  /* Primary — Orange artisanal */
-  --color-primary-50: #FFF7ED;
-  --color-primary-100: #FFEDD5;
-  --color-primary-200: #FED7AA;
-  --color-primary-300: #FDBA74;
-  --color-primary-400: #FB923C;
-  --color-primary-500: #F97316;
-  --color-primary-600: #EA580C;
-  --color-primary-700: #C2410C;
-  --color-primary-800: #9A3412;
-  --color-primary-900: #7C2D12;
+  /* ── Palette Chocolat ─────────────────────────────────────── */
+  --choco-50:  #F5EFE6;
+  --choco-100: #EAD9C8;
+  --choco-200: #D4B799;
+  --choco-300: #B8906A;
+  --choco-400: #9E7B5C;
+  --choco-500: #6F4E37;
+  --choco-600: #3D2817;
+  --choco-700: #2C1810;
+  --choco-800: #1E0F08;
+  --choco-900: #140A04;
 
-  /* Secondary — Vert succès */
-  --color-secondary-50: #F0FDF4;
-  --color-secondary-500: #22C55E;
-  --color-secondary-600: #16A34A;
-  --color-secondary-700: #15803D;
+  /* ── Palette Or / Gold ────────────────────────────────────── */
+  --or-50:  #FFF9E4;
+  --or-100: #FFF3C9;
+  --or-200: #FFE580;
+  --or-300: #F5D044;
+  --or:     #D4AF37;
+  --or-500: #B8960D;
+  --or-600: #7D6608;
 
-  /* Semantic */
-  --color-success: #16A34A;
-  --color-warning: #D97706;
-  --color-error: #DC2626;
-  --color-info: #2563EB;
+  /* ── Palette Framboise / CTA ──────────────────────────────── */
+  --framboise-50:  #FFE4E4;
+  --framboise-100: #FFD0D7;
+  --framboise-200: #F5A0B0;
+  --framboise-300: #E06080;
+  --framboise:     #C72C48;
+  --framboise-500: #9A1F37;
+  --framboise-600: #6E1226;
 
-  /* Spacing (grille 8px) */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
+  /* ── Surfaces ─────────────────────────────────────────────── */
+  --surface-app:  #FAF7F1;  /* fond crème général */
+  --surface-card: #FFFFFF;  /* cartes */
+  --surface-rail: #271A10;  /* sidebar sombre */
+  --surface-rail-dark: #1E0F08;
 
-  /* Border radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-full: 9999px;
+  /* ── Neutrals ERP ─────────────────────────────────────────── */
+  --neutral-0:   #FFFFFF;
+  --neutral-50:  #FDFDFC;
+  --neutral-100: #F5F0E8;
+  --neutral-200: #ECE9D8;
+  --neutral-300: #D4D0C8;
+  --neutral-400: #ACA899;
+  --neutral-500: #706F6C;
+  --neutral-600: #55524E;
+  --neutral-700: #3E3E3A;
+  --neutral-800: #2A2A27;
+  --neutral-900: #1B1B18;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+  /* ── Semantic couleurs ────────────────────────────────────── */
+  --color-success: #27AE60;
+  --color-warning: #D35400;
+  --color-danger:  #C72C48;
+  --color-info:    #316AC5;
 
-  /* Animations */
-  --duration-fast: 150ms;
+  /* ── Shadows (teintes chocolat) ───────────────────────────── */
+  --shadow-1: 0 1px 2px rgba(61,40,23,0.06), 0 1px 3px rgba(61,40,23,0.04);
+  --shadow-2: 0 2px 8px rgba(61,40,23,0.08), 0 1px 3px rgba(61,40,23,0.05);
+  --shadow-3: 0 8px 24px rgba(61,40,23,0.10), 0 2px 6px rgba(61,40,23,0.06);
+  --shadow-gold: 0 0 0 1px rgba(212,175,55,0.5), 0 2px 12px rgba(212,175,55,0.25);
+  --shadow-card: 0 1px 0 rgba(61,40,23,0.04), 0 1px 2px rgba(61,40,23,0.04);
+  --shadow-pop:  0 6px 16px rgba(61,40,23,0.14), 0 2px 4px rgba(61,40,23,0.06);
+
+  /* ── Border radius ────────────────────────────────────────── */
+  --rx-sm:   2px;
+  --rx-md:   4px;
+  --rx-card: 6px;
+  --rx-doc:  8px;
+  --rx-pill: 999px;
+
+  /* ── Animations ───────────────────────────────────────────── */
+  --duration-fast:   150ms;
   --duration-normal: 250ms;
-  --duration-slow: 400ms;
+  --duration-slow:   400ms;
 
-  /* Light mode — semantic tokens */
-  --bg-page: #FFFFFF;
-  --bg-card: #F9FAFB;
-  --bg-elevated: #FFFFFF;
-  --text-primary: #111827;
-  --text-secondary: #6B7280;
-  --border: #E5E7EB;
-  --border-hover: #D1D5DB;
+  /* ── Semantic tokens Light ────────────────────────────────── */
+  --bg-page:    var(--surface-app);
+  --bg-card:    var(--surface-card);
+  --text-base:  var(--neutral-800);
+  --text-muted: var(--neutral-500);
+  --border-base: var(--neutral-200);
 
-  /* shadcn/ui overrides */
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  /* ── shadcn/ui (HSL) ──────────────────────────────────────── */
+  --background: 40 33% 96%;       /* FAF7F1 */
+  --foreground: 22 30% 15%;       /* 3D2817 */
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 22 30% 15%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 24.6 95% 53.1%;
-  --primary-foreground: 60 9.1% 97.8%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 24.6 95% 53.1%;
-  --radius: 0.5rem;
+  --popover-foreground: 22 30% 15%;
+  --primary: 22 50% 18%;          /* 3D2817 */
+  --primary-foreground: 40 33% 96%;
+  --secondary: 36 25% 88%;        /* EAD9C8 */
+  --secondary-foreground: 22 30% 15%;
+  --muted: 36 25% 92%;
+  --muted-foreground: 30 5% 44%;
+  --accent: 43 65% 52%;           /* D4AF37 */
+  --accent-foreground: 22 30% 15%;
+  --destructive: 349 64% 48%;     /* C72C48 */
+  --destructive-foreground: 0 0% 100%;
+  --border: 40 20% 88%;
+  --input: 40 20% 88%;
+  --ring: 22 50% 18%;
+  --radius: 0.375rem;
 }
 
-[data-theme="dark"] {
-  --bg-page: #0F172A;
-  --bg-card: #1E293B;
-  --bg-elevated: #334155;
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --border: #334155;
-  --border-hover: #475569;
+[data-theme="dark"],
+.dark {
+  --bg-page:    #1B1B18;
+  --bg-card:    #2A2A27;
+  --text-base:  #F5F0E8;
+  --text-muted: #ACA899;
+  --border-base: #3E3E3A;
 
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 24.6 95% 53.1%;
-  --primary-foreground: 60 9.1% 97.8%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 24.6 95% 53.1%;
+  --background: 60 3% 10%;
+  --foreground: 36 20% 95%;
+  --card: 60 3% 16%;
+  --card-foreground: 36 20% 95%;
+  --popover: 60 3% 16%;
+  --popover-foreground: 36 20% 95%;
+  --primary: 43 65% 52%;
+  --primary-foreground: 22 30% 10%;
+  --secondary: 60 3% 22%;
+  --secondary-foreground: 36 20% 95%;
+  --muted: 60 3% 22%;
+  --muted-foreground: 36 10% 55%;
+  --accent: 43 65% 52%;
+  --accent-foreground: 22 30% 10%;
+  --destructive: 349 64% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 60 3% 25%;
+  --input: 60 3% 25%;
+  --ring: 43 65% 52%;
 }
 
 /* ============================================================
@@ -129,123 +148,229 @@
    ============================================================ */
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
   body {
-    @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    font-size: 0.875rem;
+    background-color: var(--bg-page);
+    color: var(--text-base);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 13.5px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1 { @apply text-3xl font-bold leading-tight tracking-tight; }
-  h2 { @apply text-2xl font-semibold leading-snug; }
+  h1 { @apply text-3xl font-bold leading-tight tracking-tight font-heading; }
+  h2 { @apply text-2xl font-semibold leading-snug font-heading; }
   h3 { @apply text-xl font-semibold leading-snug; }
   h4 { @apply text-base font-semibold; }
 
-  /* Focus visible — accessibilité */
   *:focus-visible {
-    @apply outline-none ring-2 ring-primary ring-offset-2;
+    @apply outline-none ring-2 ring-offset-2;
+    ring-color: var(--or);
   }
 }
 
 /* ============================================================
-   ANIMATIONS
+   SIDEBAR RAIL
+   ============================================================ */
+
+.sidebar-rail {
+  background-color: var(--surface-rail);
+  color: var(--choco-100);
+}
+
+.sidebar-rail .nav-item {
+  color: rgba(234, 217, 200, 0.70); /* choco-100 70% */
+}
+
+.sidebar-rail .nav-item:hover {
+  background-color: rgba(212, 175, 55, 0.10); /* or highlight */
+  color: var(--choco-50);
+}
+
+.sidebar-rail .nav-item-active {
+  background-color: rgba(212, 175, 55, 0.15);
+  color: var(--or);
+  border-left: 2px solid var(--or);
+}
+
+/* ============================================================
+   COMPOSANTS
+   ============================================================ */
+
+@layer components {
+
+  /* ── Nav item (sidebar desktop) ─────────────────────────── */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-md text-erp-sm font-medium transition-colors duration-100;
+    color: var(--neutral-600);
+  }
+  .nav-item:hover {
+    background-color: var(--neutral-100);
+    color: var(--neutral-800);
+  }
+  .nav-item-active {
+    background-color: var(--choco-50);
+    color: var(--choco-600);
+    border-left: 2px solid var(--choco-600);
+    padding-left: calc(0.75rem - 2px);
+    font-weight: 600;
+  }
+
+  /* ── KPI / Stat card ─────────────────────────────────────── */
+  .kpi-card {
+    background-color: var(--surface-card);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--rx-card);
+    box-shadow: var(--shadow-card);
+    @apply p-5 transition-shadow duration-150;
+  }
+  .kpi-card:hover {
+    box-shadow: var(--shadow-2);
+  }
+
+  /* ── Data table ──────────────────────────────────────────── */
+  .data-table-row {
+    border-bottom: 1px solid var(--neutral-100);
+    @apply transition-colors duration-100;
+  }
+  .data-table-row:hover {
+    background-color: var(--choco-50);
+  }
+  .data-table-row-warning {
+    background-color: #FFF9E4; /* or-50 */
+    border-bottom: 1px solid var(--or-100);
+  }
+
+  /* ── Status badges ───────────────────────────────────────── */
+  .status-badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+  .status-draft      { background-color: var(--neutral-100); color: var(--neutral-600); }
+  .status-confirmed  { background-color: #D1FAE5; color: #065F46; }
+  .status-progress   { background-color: #DBEAFE; color: #1E40AF; }
+  .status-done       { background-color: var(--choco-50); color: var(--choco-600); }
+  .status-cancel     { background-color: var(--framboise-50); color: var(--framboise-500); }
+  .status-warning    { background-color: #FFF9E4; color: var(--or-600); }
+
+  /* ── Buttons ─────────────────────────────────────────────── */
+  .btn-primary {
+    background-color: var(--framboise);
+    color: #FFFFFF;
+    @apply px-4 py-2 rounded-md text-erp-sm font-semibold transition-colors duration-100;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary:hover { background-color: var(--framboise-500); }
+  .btn-primary:active { background-color: var(--framboise-600); }
+
+  .btn-secondary {
+    background-color: var(--neutral-100);
+    color: var(--neutral-700);
+    border: 1px solid var(--neutral-200);
+    @apply px-4 py-2 rounded-md text-erp-sm font-medium transition-colors duration-100;
+  }
+  .btn-secondary:hover { background-color: var(--neutral-200); }
+
+  .btn-ghost {
+    color: var(--neutral-600);
+    @apply px-3 py-2 rounded-md text-erp-sm font-medium transition-colors duration-100;
+  }
+  .btn-ghost:hover {
+    background-color: var(--neutral-100);
+    color: var(--neutral-900);
+  }
+
+  /* ── Form inputs ─────────────────────────────────────────── */
+  .form-input {
+    @apply w-full h-9 px-3 text-erp-sm rounded-md transition-colors;
+    background-color: var(--surface-card);
+    border: 1px solid var(--neutral-200);
+    color: var(--neutral-800);
+  }
+  .form-input::placeholder { color: var(--neutral-400); }
+  .form-input:focus {
+    outline: none;
+    border-color: var(--choco-400);
+    box-shadow: 0 0 0 2px rgba(61,40,23,0.12);
+  }
+
+  textarea.form-input { @apply h-auto py-2; }
+
+  /* ── Section header ──────────────────────────────────────── */
+  .section-header {
+    @apply flex items-center justify-between mb-4;
+    border-bottom: 1px solid var(--neutral-200);
+    padding-bottom: 12px;
+  }
+  .section-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    @apply text-lg font-semibold;
+    color: var(--choco-600);
+  }
+
+  /* ── Product card (storefront) ───────────────────────────── */
+  .product-card {
+    background-color: var(--surface-card);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--rx-doc);
+    box-shadow: var(--shadow-card);
+    @apply overflow-hidden transition-all duration-150;
+  }
+  .product-card:hover {
+    box-shadow: var(--shadow-3);
+    transform: translateY(-1px);
+  }
+
+  /* ── Alert / stock warning ───────────────────────────────── */
+  .stock-alert { color: var(--color-warning); @apply font-medium; }
+
+  /* ── ERP page shell ──────────────────────────────────────── */
+  .page-shell {
+    @apply flex flex-col gap-6 p-6;
+    background-color: var(--bg-page);
+    min-height: 100%;
+  }
+
+  .page-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    @apply text-2xl font-bold;
+    color: var(--choco-600);
+  }
+}
+
+/* ============================================================
+   ANIMATIONS & UTILITIES
    ============================================================ */
 
 @layer utilities {
+  /* Sidebar collapse transition */
+  .sidebar-transition {
+    transition: width var(--duration-normal) ease, transform var(--duration-normal) ease;
+  }
+
+  /* Skeleton loading */
   .animate-skeleton {
     animation: skeleton-pulse 1.5s ease-in-out infinite;
   }
-
   @keyframes skeleton-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
   }
 
-  .transition-standard {
-    transition: all 150ms ease;
+  /* Fade in */
+  .animate-fade-in {
+    animation: fadeIn var(--duration-fast) ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
   }
 
-  /* Sidebar transition */
-  .sidebar-transition {
-    transition: width 250ms ease, transform 250ms ease;
+  /* Slide in */
+  .animate-slide-in {
+    animation: slideIn var(--duration-normal) ease-out;
   }
-
-  /* Card hover */
-  .card-hover {
-    @apply transition-all duration-150 hover:shadow-md hover:-translate-y-0.5;
-  }
-}
-
-/* ============================================================
-   COMPOSANTS CUSTOM
-   ============================================================ */
-
-@layer components {
-  /* KPI Card */
-  .kpi-card {
-    @apply bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 p-6 shadow-sm hover:shadow-md transition-shadow duration-150 cursor-pointer;
-  }
-
-  /* DataTable */
-  .data-table-row {
-    @apply border-b border-neutral-100 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-colors duration-100;
-  }
-
-  .data-table-row-warning {
-    @apply bg-amber-50 dark:bg-amber-950/20 border-b border-amber-100;
-  }
-
-  /* Status badge */
-  .status-badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
-  }
-
-  /* Stock alert indicator */
-  .stock-alert {
-    @apply text-amber-600 dark:text-amber-400 font-medium;
-  }
-
-  /* Sidebar nav item */
-  .nav-item {
-    @apply flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-100;
-    @apply text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-900 dark:hover:text-white;
-  }
-
-  .nav-item-active {
-    @apply bg-primary-50 dark:bg-primary-950/30 text-primary-700 dark:text-primary-400 border-l-[3px] border-primary-600;
-  }
-
-  /* Product card storefront */
-  .product-card {
-    @apply bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 overflow-hidden;
-    @apply hover:-translate-y-0.5 hover:shadow-lg transition-all duration-150;
-  }
-
-  /* CTA Button */
-  .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800;
-    @apply px-4 py-2 rounded-md text-sm font-medium transition-colors duration-100;
-    @apply disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-
-  /* Form input standard */
-  .form-input {
-    @apply w-full h-10 px-3 text-sm rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-900 dark:text-white placeholder:text-neutral-400;
-    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors;
-  }
-
-  textarea.form-input {
-    @apply h-auto py-2;
-  }
-
-  .btn-secondary {
-    @apply bg-neutral-100 dark:bg-slate-700 text-neutral-700 dark:text-slate-200;
-    @apply hover:bg-neutral-200 dark:hover:bg-slate-600 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-100;
+  @keyframes slideIn {
+    from { transform: translateY(-8px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
   }
 }

@@ -4,13 +4,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePermissions } from '@/hooks/use-permissions';
-import { cn } from '@/lib/utils/cn';
 import {
   LayoutDashboard, Package, ChefHat, Truck, ShoppingBag, ShoppingCart,
   Receipt, Palette, Users, Settings, LogOut, ChevronLeft, ChevronRight,
-  AlertTriangle, X, Menu,
+  X, Menu,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 
@@ -19,41 +18,104 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   permission?: string;
-  badge?: number;
 }
 
 const navGroups = [
   {
     label: 'Gestion',
     items: [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Ingrédients', href: '/ingredients', icon: Package, permission: 'ingredients:read' },
-      { label: 'Recettes', href: '/recipes', icon: ChefHat, permission: 'recipes:read' },
-      { label: 'Fournisseurs', href: '/suppliers', icon: Truck, permission: 'ingredients:read' },
-      { label: 'Produits', href: '/products', icon: ShoppingBag, permission: 'products:read' },
+      { label: 'Dashboard',    href: '/dashboard',   icon: LayoutDashboard },
+      { label: 'Ingrédients',  href: '/ingredients', icon: Package,     permission: 'ingredients.read' },
+      { label: 'Recettes',     href: '/recipes',     icon: ChefHat,     permission: 'recipes.read' },
+      { label: 'Fournisseurs', href: '/suppliers',   icon: Truck,       permission: 'ingredients.read' },
+      { label: 'Produits',     href: '/products',    icon: ShoppingBag, permission: 'products.read' },
     ] as NavItem[],
   },
   {
     label: 'Ventes',
     items: [
-      { label: 'Commandes', href: '/orders', icon: ShoppingCart, permission: 'orders:read' },
-      { label: 'Facturation', href: '/invoices', icon: Receipt, permission: 'invoices:read' },
+      { label: 'Commandes',   href: '/orders',   icon: ShoppingCart, permission: 'orders.read' },
+      { label: 'Facturation', href: '/invoices', icon: Receipt,      permission: 'invoices.read' },
     ] as NavItem[],
   },
   {
     label: 'Vitrine',
     items: [
-      { label: 'CMS Builder', href: '/cms', icon: Palette, permission: 'cms:read' },
+      { label: 'CMS Builder', href: '/cms', icon: Palette, permission: 'cms.read' },
     ] as NavItem[],
   },
   {
     label: 'Admin',
     items: [
-      { label: 'Équipe', href: '/settings/team', icon: Users, permission: 'users:read' },
-      { label: 'Paramètres', href: '/settings', icon: Settings },
+      { label: 'Équipe',     href: '/settings/team', icon: Users,    permission: 'team.read' },
+      { label: 'Paramètres', href: '/settings',      icon: Settings },
     ] as NavItem[],
   },
 ];
+
+// Sidebar design tokens
+const S = {
+  bg:       '#2C1810',
+  border:   'rgba(245,230,211,0.08)',
+  gold:     '#D4AF37',
+  text:     'rgba(234,217,200,0.70)',
+  textHov:  '#F5EFE6',
+  textAct:  '#D4AF37',
+  section:  'rgba(158,123,92,0.70)',
+  bgHov:    'rgba(212,175,55,0.10)',
+  bgAct:    'rgba(212,175,55,0.15)',
+};
+
+function NavLink({
+  href, icon: Icon, label, active, collapsed, badge, onClick,
+}: {
+  href: string; icon: React.ElementType; label: string;
+  active: boolean; collapsed: boolean; badge?: number; onClick?: () => void;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      title={collapsed ? label : undefined}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: collapsed ? 0 : 9,
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        padding: collapsed ? '8px 0' : active ? '7px 12px 7px 10px' : '7px 12px',
+        borderRadius: 5,
+        borderLeft: active ? `2px solid ${S.gold}` : '2px solid transparent',
+        background: active ? S.bgAct : hov ? S.bgHov : 'transparent',
+        color: active ? S.textAct : hov ? S.textHov : S.text,
+        textDecoration: 'none',
+        fontSize: 13,
+        fontWeight: active ? 600 : 500,
+        transition: 'background .1s, color .1s',
+        boxSizing: 'border-box',
+        width: '100%',
+        letterSpacing: '.01em',
+      }}
+    >
+      <Icon size={15} style={{ flexShrink: 0, opacity: active ? 1 : 0.85 }} />
+      {!collapsed && (
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {label}
+        </span>
+      )}
+      {!collapsed && badge && badge > 0 && (
+        <span style={{
+          background: '#C72C48', color: '#fff', fontSize: 10, fontWeight: 700,
+          padding: '1px 6px', borderRadius: 999, minWidth: 18, textAlign: 'center',
+        }}>
+          {badge}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -62,7 +124,6 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Compter les commandes en attente
   const { data: pendingCount } = useQuery({
     queryKey: ['orders-pending-count'],
     queryFn: async () => {
@@ -73,148 +134,231 @@ export function AppSidebar() {
   });
 
   const isActive = (href: string) => {
-    const base = pathname.replace(/^\/[a-z]{2}/, ''); // strip locale
+    const base = pathname.replace(/^\/[a-z]{2}/, '');
     return base === href || (href !== '/dashboard' && base.startsWith(href));
   };
 
   const sidebarContent = (
-    <div className="flex flex-col h-full">
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100%',
+      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+    }}>
+
       {/* Logo */}
-      <div className={cn(
-        'flex items-center gap-3 px-4 py-5 border-b border-neutral-200 dark:border-slate-700',
-        collapsed && 'justify-center px-2'
-      )}>
-        <span className="text-2xl flex-shrink-0">🥐</span>
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        gap: collapsed ? 0 : 10,
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        padding: collapsed ? '13px 0' : '13px 14px',
+        borderBottom: `1px solid ${S.border}`,
+        flexShrink: 0,
+      }}>
+        <div style={{
+          width: 26, height: 26, borderRadius: 5, flexShrink: 0,
+          background: S.gold, color: '#2C1810',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: '"Playfair Display", Georgia, serif',
+          fontSize: 16, fontWeight: 700, fontStyle: 'italic',
+        }}>C</div>
         {!collapsed && (
-          <div className="min-w-0">
-            <div className="font-bold text-sm text-neutral-900 dark:text-white truncate">
-              {user?.firstName ? `${user.firstName}` : 'ArtisaStock'}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#EAD9C8', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              ArtisaStock
             </div>
-            <div className="text-xs text-neutral-500 truncate">Mon espace artisan</div>
+            <div style={{ fontSize: 9.5, color: 'rgba(212,175,55,0.6)', letterSpacing: '.1em', textTransform: 'uppercase', marginTop: 1 }}>
+              Mon espace
+            </div>
           </div>
         )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
+      <nav style={{
+        flex: 1, overflowY: 'auto', padding: '12px 8px',
+        display: 'flex', flexDirection: 'column', gap: 20,
+      }}>
         {navGroups.map((group) => {
-          const visibleItems = group.items.filter((item) => !item.permission || can(item.permission));
-          if (visibleItems.length === 0) return null;
-
+          const visible = group.items.filter(item => !item.permission || can(item.permission));
+          if (!visible.length) return null;
           return (
             <div key={group.label}>
               {!collapsed && (
-                <p className="px-3 mb-1 text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                <p style={{
+                  margin: '0 0 5px 6px', padding: 0,
+                  fontSize: 10, fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: '.12em',
+                  color: S.section,
+                }}>
                   {group.label}
                 </p>
               )}
-              <div className="space-y-0.5">
-                {visibleItems.map((item) => {
-                  const active = isActive(item.href);
-                  const Icon = item.icon;
-                  const badge = item.href === '/orders' ? pendingCount : undefined;
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={cn(
-                        'nav-item',
-                        active && 'nav-item-active',
-                        collapsed && 'justify-center px-2',
-                      )}
-                      title={collapsed ? item.label : undefined}
-                    >
-                      <Icon size={18} className="flex-shrink-0" />
-                      {!collapsed && <span className="flex-1">{item.label}</span>}
-                      {!collapsed && badge && badge > 0 && (
-                        <span className="bg-primary-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
-                          {badge}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {visible.map(item => (
+                  <NavLink
+                    key={item.href}
+                    href={item.href}
+                    icon={item.icon}
+                    label={item.label}
+                    active={isActive(item.href)}
+                    collapsed={collapsed}
+                    badge={item.href === '/orders' ? pendingCount : undefined}
+                    onClick={() => setMobileOpen(false)}
+                  />
+                ))}
               </div>
             </div>
           );
         })}
       </nav>
 
-      {/* User + collapse */}
-      <div className="border-t border-neutral-200 dark:border-slate-700 p-2">
+      {/* Footer */}
+      <div style={{ borderTop: `1px solid ${S.border}`, padding: '8px 8px 10px', flexShrink: 0 }}>
+        {/* User info */}
         {!collapsed && user && (
-          <div className="flex items-center gap-3 px-3 py-2 mb-1">
-            <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-semibold flex-shrink-0">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', marginBottom: 4 }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+              background: '#3D2817', color: S.gold,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 10, fontWeight: 700,
+              border: '1px solid rgba(212,175,55,0.35)',
+            }}>
               {user.firstName[0]}{user.lastName[0]}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: '#EAD9C8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user.firstName} {user.lastName}
               </p>
-              <p className="text-xs text-neutral-500 truncate">{user.email}</p>
+              <p style={{ margin: 0, fontSize: 10.5, color: S.section, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user.email}
+              </p>
             </div>
           </div>
         )}
-        <button
-          onClick={() => logout()}
-          className={cn(
-            'nav-item w-full text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-700',
-            collapsed && 'justify-center px-2'
-          )}
-        >
-          <LogOut size={18} />
-          {!collapsed && <span>Déconnexion</span>}
-        </button>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="nav-item w-full mt-1 justify-center"
-        >
-          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-        </button>
+
+        {/* Logout */}
+        <LogoutButton collapsed={collapsed} onLogout={logout} />
+
+        {/* Collapse */}
+        <CollapseButton collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       </div>
     </div>
   );
 
+  const sidebarWidth = collapsed ? 64 : 224;
+
   return (
     <>
-      {/* Desktop sidebar */}
+      {/* Desktop */}
       <aside
-        className={cn(
-          'hidden lg:flex flex-col fixed left-0 top-0 bottom-0 z-20 bg-white dark:bg-slate-800 border-r border-neutral-200 dark:border-slate-700 sidebar-transition',
-          collapsed ? 'w-16' : 'w-64'
-        )}
+        className="hidden lg:flex flex-col"
+        style={{
+          position: 'fixed', left: 0, top: 38, bottom: 0, zIndex: 20,
+          width: sidebarWidth,
+          background: S.bg,
+          boxShadow: '2px 0 16px rgba(0,0,0,0.22)',
+          transition: 'width 250ms ease',
+          overflow: 'hidden',
+        }}
       >
         {sidebarContent}
       </aside>
 
-      {/* Mobile: hamburger */}
+      {/* Spacer to push main content */}
+      <div
+        className="hidden lg:block"
+        style={{ width: sidebarWidth, flexShrink: 0, transition: 'width 250ms ease' }}
+      />
+
+      {/* Mobile hamburger */}
       <button
+        className="lg:hidden"
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-30 p-2 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 rounded-md shadow-sm"
+        style={{
+          position: 'fixed', top: 46, left: 10, zIndex: 29,
+          padding: '5px 7px', background: S.bg, color: '#EAD9C8',
+          border: 'none', borderRadius: 5, cursor: 'pointer',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
       >
-        <Menu size={20} />
+        <Menu size={17} />
       </button>
 
       {/* Mobile drawer */}
       {mobileOpen && (
         <>
           <div
-            className="lg:hidden fixed inset-0 z-30 bg-black/50"
+            className="lg:hidden"
             onClick={() => setMobileOpen(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 30, background: 'rgba(0,0,0,0.55)' }}
           />
-          <aside className="lg:hidden fixed left-0 top-0 bottom-0 z-40 w-72 bg-white dark:bg-slate-800 border-r border-neutral-200 dark:border-slate-700">
+          <aside
+            className="lg:hidden flex flex-col"
+            style={{
+              position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 40,
+              width: 240, background: S.bg,
+            }}
+          >
             <button
               onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-4 p-1 text-neutral-400 hover:text-neutral-600"
+              style={{
+                position: 'absolute', top: 10, right: 10,
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: S.section, padding: 4, display: 'flex',
+              }}
             >
-              <X size={20} />
+              <X size={17} />
             </button>
             {sidebarContent}
           </aside>
         </>
       )}
     </>
+  );
+}
+
+function LogoutButton({ collapsed, onLogout }: { collapsed: boolean; onLogout: () => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onLogout}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 9,
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        width: '100%', padding: collapsed ? '7px 0' : '7px 12px',
+        background: hov ? 'rgba(199,44,72,0.12)' : 'transparent',
+        border: 'none', borderRadius: 5, cursor: 'pointer',
+        color: hov ? '#C72C48' : 'rgba(199,44,72,0.70)',
+        fontSize: 13, fontWeight: 500, fontFamily: 'inherit',
+        transition: 'background .1s, color .1s',
+      }}
+    >
+      <LogOut size={15} style={{ flexShrink: 0 }} />
+      {!collapsed && <span>Déconnexion</span>}
+    </button>
+  );
+}
+
+function CollapseButton({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onToggle}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: '100%', padding: '5px 0', marginTop: 2,
+        background: hov ? 'rgba(212,175,55,0.08)' : 'transparent',
+        border: 'none', borderRadius: 5, cursor: 'pointer',
+        color: hov ? '#EAD9C8' : 'rgba(234,217,200,0.25)',
+        transition: 'background .1s, color .1s',
+      }}
+    >
+      {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+    </button>
   );
 }
