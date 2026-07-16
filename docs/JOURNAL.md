@@ -12,9 +12,29 @@
 | 6 | PDF factures : HTML → Buffer UTF-8 (swap Puppeteer en prod) | src/lib/pdf.ts | 2026-07-13 |
 | 7 | VatBreakdownLine expose `base`/`amount` — pas `baseHT`/`vatAmount` | src/lib/utils/vat.ts | 2026-07-14 |
 | 8 | calculateRecipeCost est synchrone et pure — jamais async, signature (ingredients[], servings) | src/lib/costs.ts | 2026-07-14 |
+| 9 | Next.js 15 middleware Edge Runtime : jsonwebtoken incompatible — utiliser Web Crypto API (crypto.subtle) | src/middleware.ts | 2026-07-15 |
+| 10 | Tailwind ne compile pas sans postcss.config.js — fichier obligatoire même si Next.js semble l'auto-détecter | postcss.config.js | 2026-07-15 |
+| 11 | Inline styles pour les couleurs custom dans les composants React — évite les problèmes de purge Tailwind avec valeurs arbitraires | AppSidebar.tsx, AppTitleBar.tsx | 2026-07-15 |
+| 12 | Layout flex row (AppSidebar spacer + main flex:1) pour sidebar fixe sans padding-left codé en dur | (dashboard)/layout.tsx | 2026-07-15 |
 | 9 | Tests unitaires : couvrir fonctions pures sans mock ; intégration : mock Prisma setup.ts | tests/ | 2026-07-14 |
 
+| 13 | BOM : N0 auto-créé en transaction atomique à la création du contexte — jamais manuellement | api/v1/bom/contexts/route.ts | 2026-07-16 |
+| 14 | BOM : cycle detection via Set<string> visited dans calculateBomCost récursif | src/lib/bom/cost.ts | 2026-07-16 |
+| 15 | BOM MVP : FIFO simplifié décrémente Ingredient.stock (pas de lots) — à revoir au module Achats | src/lib/bom/fifo.ts | 2026-07-16 |
+| 16 | UnitOfMeasure étendu : MG, CG, CL, DL ajoutés pour BOM | prisma/schema.prisma | 2026-07-16 |
+
 ## Historique
+
+### SESSION BOM-KANBAN — 2026-07-16
+
+### [2026-07-16 17:30] FEAT — bom/kanban-production
+**Fichiers :**
+- `src/app/api/v1/bom/sheets/[id]/simulate/route.ts` — CRÉÉ — GET combiné cost + availability (parallel Promise.all)
+- `src/app/api/v1/bom/productions/route.ts` — CRÉÉ — GET paginé par contextId (join sheet→level→context)
+- `src/app/[locale]/(dashboard)/bom/[contextId]/production/page.tsx` — CRÉÉ — Page Kanban 3 colonnes
+- `src/app/[locale]/(dashboard)/bom/[contextId]/page.tsx` — MODIFIÉ — Bouton "► Production" dans le header
+
+**Résumé :** Implémentation du Kanban de production fidèle au workflow V1 WinForms. 3 colonnes : Niveaux/Fiches (N0 non-cliquable), Simulation (inputs → table disponibilité vert/rouge → confirmation inline), Historique (groupé par jour). Bouton "Lancer" disabled tant que pénurie. Auto-re-simuler après production réussie pour afficher stocks mis à jour.
 
 ### SESSION 0 — 2026-06-07
 
@@ -43,6 +63,34 @@
 
 **Impact :** Base de tests solide pour régression. 2 bugs critiques éliminés. Rapport QA consultable par DevOps pour go/no-go déploiement.
 **Alerte agent suivant (DevOps):** BUG-004 (statut CONFIRMED) à corriger avant go-live. Upload images = mock URL (S3/R2 requis). PDF = HTML Buffer (Puppeteer requis en prod). Playwright non installé — ajouter `@playwright/test` aux devDeps. Variables d'env : voir .env.example.
+
+---
+
+### SESSION BOM — 2026-07-16
+
+### [2026-07-16 00:00] FEAT — bom/schema
+**Fichiers :** `prisma/schema.prisma`
+**Résumé :** Ajout de 4 nouvelles valeurs UnitOfMeasure (MG, CG, CL, DL) + 7 modèles BOM (BomContext, BomLevel, BomSheet, BomLine, BomProduction, BomProductionLine, BomStock) + 2 enums (BomInputType, BomSourceType). Relations Tenant et Ingredient étendues.
+
+### [2026-07-16 00:00] FEAT — bom/lib
+**Fichiers :** `src/lib/bom/units.ts`, `src/lib/bom/cost.ts`, `src/lib/bom/fifo.ts`
+**Résumé :** Bibliothèque BOM complète. `units.ts` : convert/compatibleUnits/formatQty avec groupes masse/volume/pièce. `cost.ts` : calcul récursif DFS avec détection de cycles. `fifo.ts` : checkAvailability + consumeFIFO MVP (décrémente Ingredient.stock directement, sans lots).
+
+### [2026-07-16 00:00] FEAT — bom/api
+**Fichiers :** `src/app/api/v1/bom/**` (10 fichiers route.ts)
+**Résumé :** Routes REST complètes : contexts (CRUD + N0 auto), levels (CRUD + guards N0/dernier), sheets (CRUD + guards production/usage), lines (GET/POST/DELETE + guard hiérarchie N), cost (GET simulation), produce (POST FIFO transactionnel). Permissions bom.read/write/produce ajoutées.
+
+### [2026-07-16 00:00] FEAT — bom/frontend
+**Fichiers :** `src/app/[locale]/(dashboard)/bom/page.tsx`, `src/app/[locale]/(dashboard)/bom/[contextId]/page.tsx`, `src/components/bom/BomContextSheet.tsx`, `src/components/bom/BomLevelSheet.tsx`, `src/components/bom/BomSheetEditor.tsx`, `src/components/bom/BomProductionModal.tsx`, `src/components/layout/AppSidebar.tsx`
+**Résumé :** Hub BOM (liste contextes en cards), détail contexte (colonnes niveaux/fiches), éditeur fiche avec onglets lignes/coût, modal production avec availability check. Entrée "Nomenclature" + icône Factory ajoutée dans AppSidebar.
+
+### [2026-07-16 00:00] TEST — bom/units+cost
+**Fichiers :** `tests/unit/lib/bom/units.test.ts`, `tests/unit/lib/bom/cost.test.ts`
+**Résumé :** 20 cas units.test.ts (conversions masse/volume/pièce, incompatibilité inter-groupe, formatQty). 5 cas cost.test.ts (zéro lignes, conversion kg/g, nBatches scaling, détection cycle, récursion sous-fiche).
+
+### [2026-07-16 17:52] CONFIG — bom/verification
+**Fichiers :** `src/lib/bom/`, `src/app/api/v1/bom/`, `src/components/bom/`, `src/app/[locale]/(dashboard)/bom/`
+**Résumé :** Vérification finale module BOM. TypeScript : 0 erreur dans src/ (erreurs .next/types/ pré-existantes Next.js 15 async params — hors scope BOM). Tests unitaires : 28/28 ✅ (23 units + 5 cost). Périmètre complet : schéma Prisma (7 modèles + 2 enums) → lib (units/cost/fifo) → API (10 routes) → UI (4 composants + 2 pages) → sidebar.
 
 ---
 
@@ -119,3 +167,22 @@
 ### [2026-06-07 00:00] FEAT — init
 **Fichiers :** `CLAUDE.md`, `docs/JOURNAL.md`, `src/`, `tests/`
 **Resume :** Scaffolding initial via `/hub new`. Coquille vide creee — stack et dependances a definir apres brainstorm.
+
+### SESSION 4 — 2026-07-16
+
+### [2026-07-16 00:00] FIX — BUG-004 statut CONFIRMED
+**Fichiers :** `prisma/schema.prisma`, `src/lib/constants/order-status.ts`, `tests/unit/lib/order-status.test.ts`
+**Résumé :** Alignement frontend/backend sur le statut `CONFIRMED`. Ajout de `CONFIRMED` à l'enum Prisma `OrderStatus`, à `ORDER_STATUS_LABELS`, aux `VALID_TRANSITIONS` (`NEW → CONFIRMED → IN_PREPARATION`). Prisma client régénéré. 19 tests passent.
+**Erreur corrigée :** Frontend `NEXT_STATUSES` incluait `NEW → CONFIRMED` mais backend et schema ne connaissaient pas cette valeur → rejet 400 à chaque clic "Confirmer". Fix : ajouter `CONFIRMED` côté backend (valeur métier valide). Règle : `db push` requis au prochain démarrage de la DB.
+
+### [2026-07-16 00:00] DOCS — V1-FEATURE-AUDIT
+**Fichiers :** `docs/V1-FEATURE-AUDIT.md`
+**Résumé :** Pipeline 3 agents parallèles (Données & SQL · Logique Métier · Features & Workflows) pour scanner exhaustivement ArtisaStock v1 (C# WinForms + Laravel). Compilation en document de référence unique pour les agents v2.
+**Contenu :** Schema 20 tables + vue + 22 migrations | Conversions d'unités + FIFO + calcul coût BOM récursif + TVA | 33+ fonctionnalités + 5 workflows step-by-step + mapping WinForms→React | 14 règles métier critiques | Backlog priorisé P0/P1/P2
+
+### SESSION 3 — 2026-07-15
+
+### [2026-07-15 23:59] SESSION — End
+**Résumé :** Design system ArtisaStock complet. Fix critique postcss.config.js (Tailwind non compilé). JWT Edge-compat (Web Crypto). Layout ERP : TitleBar chocolat fixe + sidebar brun foncé inline styles + main flex. Login page fond chocolat profond. Dashboard HubScreen (KpiTile, table commandes, alertes). 7 placeholders pages manquantes. next-intl localePrefix aligné. api-client redirect locale-aware.
+**Branche :** master
+**Commits pushés :** 1 (93aa316)

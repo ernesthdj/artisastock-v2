@@ -27,6 +27,10 @@ export const PERMISSIONS = {
   // Module Paramètres
   'settings.read': 'Voir les paramètres',
   'settings.write': 'Modifier les paramètres',
+  // Module BOM (Bill of Materials — Nomenclature de fabrication)
+  'bom.read': 'Voir les fiches BOM et contextes',
+  'bom.write': 'Créer/modifier fiches, niveaux, contextes',
+  'bom.produce': 'Lancer une production BOM',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

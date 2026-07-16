@@ -7,7 +7,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import {
   LayoutDashboard, Package, ChefHat, Truck, ShoppingBag, ShoppingCart,
   Receipt, Palette, Users, Settings, LogOut, ChevronLeft, ChevronRight,
-  X, Menu,
+  X, Menu, Factory,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -29,6 +29,7 @@ const navGroups = [
       { label: 'Recettes',     href: '/recipes',     icon: ChefHat,     permission: 'recipes.read' },
       { label: 'Fournisseurs', href: '/suppliers',   icon: Truck,       permission: 'ingredients.read' },
       { label: 'Produits',     href: '/products',    icon: ShoppingBag, permission: 'products.read' },
+      { label: 'Nomenclature', href: '/bom',         icon: Factory,     permission: 'bom.read' },
     ] as NavItem[],
   },
   {

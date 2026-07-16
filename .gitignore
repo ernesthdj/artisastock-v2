@@ -40,3 +40,4 @@ coverage/
 # Misc
 next-env.d.ts
 *.tsbuildinfo
+.claude/
