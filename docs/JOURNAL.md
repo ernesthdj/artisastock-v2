@@ -23,7 +23,22 @@
 | 15 | BOM MVP : FIFO simplifié décrémente Ingredient.stock (pas de lots) — à revoir au module Achats | src/lib/bom/fifo.ts | 2026-07-16 |
 | 16 | UnitOfMeasure étendu : MG, CG, CL, DL ajoutés pour BOM | prisma/schema.prisma | 2026-07-16 |
 
+| 17 | tailwind-merge ignore les scales Tailwind custom (fontSize/radius/shadow) — sans `extendTailwindMerge`, `text-erp-sm` et `text-[#hex]` se percutent silencieusement (texte invisible) | src/lib/utils/cn.ts | 2026-07-21 |
+| 18 | Next.js 15 + React 18 : pages client sur route dynamique → `useParams()` de next/navigation, jamais `params` en prop (le `use(promise)` du codemod officiel exige React 19) | orders/[id]/page.tsx, storefront/[tenantSlug]/* | 2026-07-21 |
+| 19 | Champs Decimal Prisma (stock, priceUnit, alertThreshold) sérialisent en **string** sur le JSON — toujours `Number(...)` avant calcul/affichage | Ingredient, ingredients/page.tsx | 2026-07-21 |
+| 20 | apiClient déballe déjà `json.data` une fois — les endpoints paginés exposent `meta` séparément (`res.meta.total`), jamais `res.data.data` | src/lib/api-client.ts | 2026-07-21 |
+| 21 | src/lib/email.ts ne doit jamais throw au chargement du module si RESEND_API_KEY absent — ça crashe toute route qui l'importe (register, invite...) même sans jamais appeler l'envoi | src/lib/email.ts | 2026-07-21 |
+| 22 | withPermission/withAuth : signature réelle = `(request, permission?, handler)` — plusieurs routes API legacy avaient une signature à un seul argument jamais migrée, cassée depuis le début | src/lib/permissions.ts | 2026-07-21 |
+
 ## Historique
+
+### SESSION DEPLOY — 2026-07-21 (hub end)
+
+### [2026-07-21] SESSION — End
+**Résumé :** Import du design ArtisaStock depuis Claude Design (DesignSync MCP) — 14 primitives UI (Btn, Card, DataTable, Pill, etc.), chrome refait (TopBar/Sidebar/StatusBar), nouvelle nav Atelier/Contexte/Workflow/Stock&Achats/Référentiels/Boutique, restyle Hub/BOM/Ingrédients/Commandes. Déploiement production sur Vercel + Supabase (projet ArtisaStock réutilisé, mot de passe DB régénéré, schema poussé via `directUrl` pooler). Premier build de production jamais réussi pour ce projet — a mis au jour et corrigé une dette technique importante : migration Next.js 15 params async (codemod officiel + fixes manuels), 17 routes API avec signature `withPermission`/`withAuth` legacy cassée depuis leur création, contrat frontend/backend Ingredient incohérent (`priceUnit`/`stock` vs noms inventés), enum GDPR faux, route `recipes/duplicate` et `accept-invite` réécrites (référençaient des champs Prisma inexistants), credentials démo en dur retirés du login, module email rendu non-bloquant sans Resend configuré.
+**Branche :** master
+**Commits pushés :** 1 (`d819622`)
+**Alerte session suivante :** Inscription (`/register`) doit maintenant fonctionner en prod — à confirmer par l'utilisateur. RESEND_API_KEY/STRIPE/UPLOADTHING/UPSTASH toujours non configurés en prod (choix "minimum viable") — emails et paiements restent inactifs jusqu'à ajout des clés.
 
 ### SESSION BOM-KANBAN — 2026-07-16 (hub end)
 
