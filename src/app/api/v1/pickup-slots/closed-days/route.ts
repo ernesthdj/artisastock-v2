@@ -9,10 +9,8 @@ const closedDaySchema = z.object({
   reason: z.string().max(200).optional(),
 });
 
-export const GET = withPermission('settings:read', async (
-  request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function GET(request: NextRequest) {
+  return withPermission(request, 'settings.read', async (ctx) => {
   const sp = request.nextUrl.searchParams;
   const from = sp.get('from') ? parseISO(sp.get('from')!) : new Date();
   const to = sp.get('to') ? parseISO(sp.get('to')!) : addMonths(from, 3);
@@ -22,13 +20,12 @@ export const GET = withPermission('settings:read', async (
     orderBy: { date: 'asc' },
   });
 
-  return apiSuccess(closedDays.map((d) => ({ ...d, date: format(d.date, 'yyyy-MM-dd') })));
-});
+    return apiSuccess(closedDays.map((d) => ({ ...d, date: format(d.date, 'yyyy-MM-dd') })));
+  });
+}
 
-export const POST = withPermission('settings:write', async (
-  request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function POST(request: NextRequest) {
+  return withPermission(request, 'settings.write', async (ctx) => {
   let body: unknown;
   try { body = await request.json(); } catch {
     return apiError('INVALID_JSON', 'Corps de requête invalide', 400);
@@ -48,13 +45,12 @@ export const POST = withPermission('settings:write', async (
     data: { tenantId: ctx.tenantId, date, reason: parsed.data.reason ?? null },
   });
 
-  return apiCreated({ ...closedDay, date: format(closedDay.date, 'yyyy-MM-dd') });
-});
+    return apiCreated({ ...closedDay, date: format(closedDay.date, 'yyyy-MM-dd') });
+  });
+}
 
-export const DELETE = withPermission('settings:write', async (
-  request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function DELETE(request: NextRequest) {
+  return withPermission(request, 'settings.write', async (ctx) => {
   const date = request.nextUrl.searchParams.get('date');
   if (!date) return apiError('MISSING_PARAM', 'Paramètre date requis', 400);
 
@@ -65,5 +61,6 @@ export const DELETE = withPermission('settings:write', async (
 
   if (deleted.count === 0) return apiError('NOT_FOUND', 'Jour fermé introuvable', 404);
 
-  return apiSuccess({ deleted: deleted.count });
-});
+    return apiSuccess({ deleted: deleted.count });
+  });
+}

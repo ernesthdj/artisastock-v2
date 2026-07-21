@@ -25,6 +25,13 @@
 
 ## Historique
 
+### SESSION BOM-KANBAN — 2026-07-16 (hub end)
+
+### [2026-07-16 18:00] SESSION — End
+**Résumé :** Module BOM complet V1→V2. Schéma Prisma 7 modèles, lib/bom (units/cost/fifo), 10 API routes, 3 pages (hub/détail/kanban production), 4 composants, tests unitaires. Commit b6e3692 pushé.
+**Branche :** master
+**Commits pushés :** 1
+
 ### SESSION BOM-KANBAN — 2026-07-16
 
 ### [2026-07-16 17:30] FEAT — bom/kanban-production

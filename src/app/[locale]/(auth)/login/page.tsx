@@ -15,7 +15,7 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 const schema = z.object({
   email: z.string().email('Email invalide'),
   password: z.string().min(1, 'Mot de passe requis'),
-  rememberMe: z.boolean().default(false),
+  rememberMe: z.boolean(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -55,8 +55,8 @@ export default function LoginPage() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      email: 'admin@demo-boulangerie.be',
-      password: 'Demo1234!',
+      email: '',
+      password: '',
       rememberMe: false,
     },
   });

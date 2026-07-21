@@ -18,12 +18,19 @@ class ApiError extends Error {
   }
 }
 
+interface PaginationMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
   retry = true
-): Promise<{ data: T; status: number }> {
+): Promise<{ data: T; status: number; meta?: PaginationMeta }> {
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem('access_token') : null;
 
   const headers: Record<string, string> = {
@@ -70,7 +77,7 @@ async function request<T>(
     );
   }
 
-  return { data: json?.data ?? json, status: res.status };
+  return { data: json?.data ?? json, meta: json?.meta, status: res.status };
 }
 
 export const apiClient = {

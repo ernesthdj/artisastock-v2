@@ -3,13 +3,11 @@ import { prisma } from '@/lib/prisma';
 import { withAuth, apiSuccess, apiError } from '@/lib/permissions';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-01-27.acacia' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' });
 
 // Initier l'onboarding Stripe Connect
-export const POST = withAuth(async (
-  _request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function POST(request: NextRequest) {
+  return withAuth(request, async (ctx) => {
   const tenant = await prisma.tenant.findUnique({
     where: { id: ctx.tenantId },
     select: { name: true, email: true, settings: true },
@@ -50,5 +48,6 @@ export const POST = withAuth(async (
     type: 'account_onboarding',
   });
 
-  return apiSuccess({ url: accountLink.url });
-});
+    return apiSuccess({ url: accountLink.url });
+  });
+}

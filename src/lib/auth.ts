@@ -20,15 +20,15 @@ export interface JwtPayload {
 // ─── Token generation ───────────────────────────────────────────────────────
 
 export function generateAccessToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
 }
 
 export function generateRefreshToken(payload: Pick<JwtPayload, 'userId' | 'sessionId'>): string {
-  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: JWT_REFRESH_EXPIRES_IN });
+  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: JWT_REFRESH_EXPIRES_IN } as jwt.SignOptions);
 }
 
 export function generateRefreshTokenLong(payload: Pick<JwtPayload, 'userId' | 'sessionId'>): string {
-  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: JWT_REFRESH_REMEMBER_EXPIRES_IN });
+  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: JWT_REFRESH_REMEMBER_EXPIRES_IN } as jwt.SignOptions);
 }
 
 // ─── Token verification ─────────────────────────────────────────────────────

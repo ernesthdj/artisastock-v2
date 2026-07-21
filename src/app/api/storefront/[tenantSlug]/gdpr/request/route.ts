@@ -4,16 +4,14 @@ import { apiSuccess, apiError } from '@/lib/permissions';
 import { z } from 'zod';
 
 const gdprRequestSchema = z.object({
-  type: z.enum(['EXPORT', 'DELETE', 'RECTIFICATION']),
+  type: z.enum(['ACCESS', 'DELETION']),
   email: z.string().email(),
   details: z.string().max(1000).optional(),
 });
 
 // Route publique — demande RGPD côté vitrine
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { tenantSlug: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ tenantSlug: string }> }) {
+  const params = await props.params;
   let body: unknown;
   try { body = await request.json(); } catch {
     return apiError('INVALID_JSON', 'Corps de requête invalide', 400);
@@ -39,9 +37,10 @@ export async function POST(
       data: {
         tenantId: tenant.id,
         customerId: customer.id,
+        email: parsed.data.email,
         type: parsed.data.type,
         status: 'PENDING',
-        details: parsed.data.details ?? null,
+        notes: parsed.data.details ?? null,
       },
     });
   }

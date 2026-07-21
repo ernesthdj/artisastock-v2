@@ -1,5 +1,5 @@
 'use client';
-
+import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Clock, Loader2, Package, Truck } from 'lucide-react';
 import { formatPrice } from '@/lib/utils/format';
@@ -24,7 +24,8 @@ const STATUS_STEPS = [
 
 const STATUS_ORDER = ['NEW', 'CONFIRMED', 'IN_PREPARATION', 'READY', 'PICKED_UP'];
 
-export default function OrderTrackingPage({ params }: { params: { tenantSlug: string; trackingToken: string } }) {
+export default function OrderTrackingPage() {
+  const params = useParams<{ tenantSlug: string; trackingToken: string }>();
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['tracking', params.trackingToken],
     queryFn: async () => {

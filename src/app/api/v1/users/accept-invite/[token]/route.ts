@@ -1,25 +1,29 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/permissions';
-import { resetPasswordSchema } from '@/lib/validators/auth';
+import { passwordSchema } from '@/lib/validators/auth';
+import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { createSession } from '@/lib/auth';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { token: string } }
-) {
+const acceptInviteSchema = z.object({
+  password: passwordSchema,
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+});
+
+export async function POST(request: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   let body: unknown;
   try { body = await request.json(); } catch {
     return apiError('INVALID_JSON', 'Corps de requête invalide', 400);
   }
 
-  const parsed = resetPasswordSchema.safeParse(body);
+  const parsed = acceptInviteSchema.safeParse(body);
   if (!parsed.success) return apiError('VALIDATION_ERROR', 'Données invalides', 400, parsed.error.issues);
 
   const invitation = await prisma.userInvitation.findUnique({
     where: { token: params.token },
-    include: { tenant: { select: { id: true, slug: true } } },
   });
 
   if (!invitation) return apiError('INVALID_TOKEN', 'Invitation invalide ou expirée', 400);
@@ -27,32 +31,38 @@ export async function POST(
     await prisma.userInvitation.delete({ where: { id: invitation.id } });
     return apiError('TOKEN_EXPIRED', 'Cette invitation a expiré', 400);
   }
-  if (invitation.acceptedAt) {
+  if (invitation.usedAt) {
     return apiError('ALREADY_ACCEPTED', 'Cette invitation a déjà été acceptée', 400);
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
   const [user] = await prisma.$transaction([
-    prisma.user.update({
-      where: { id: invitation.userId },
+    prisma.user.create({
       data: {
+        tenantId: invitation.tenantId,
+        email: invitation.email,
         passwordHash,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        roleId: invitation.roleId,
         isActive: true,
         emailVerified: true,
+        emailVerifiedAt: new Date(),
       },
     }),
     prisma.userInvitation.update({
       where: { id: invitation.id },
-      data: { acceptedAt: new Date() },
+      data: { usedAt: new Date() },
     }),
   ]);
 
-  const rememberMe = false;
+  const tenant = await prisma.tenant.findUnique({ where: { id: invitation.tenantId }, select: { slug: true } });
+
   const userAgent = request.headers.get('user-agent') ?? undefined;
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? undefined;
 
-  const { accessToken, refreshToken } = await createSession(user.id, userAgent, ip, rememberMe);
+  const { accessToken, refreshToken } = await createSession(user.id, false, userAgent, ip);
 
-  return apiSuccess({ accessToken, refreshToken, tenantSlug: invitation.tenant.slug });
+  return apiSuccess({ accessToken, refreshToken, tenantSlug: tenant?.slug });
 }

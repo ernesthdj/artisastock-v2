@@ -3,12 +3,10 @@ import { prisma } from '@/lib/prisma';
 import { withPermission, apiSuccess, apiError } from '@/lib/permissions';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-01-27.acacia' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' });
 
-export const POST = withPermission('settings:write', async (
-  _request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function POST(request: NextRequest) {
+  return withPermission(request, 'settings.write', async (ctx) => {
   const tenant = await prisma.tenant.findUnique({
     where: { id: ctx.tenantId },
     select: { settings: true },
@@ -32,5 +30,6 @@ export const POST = withPermission('settings:write', async (
     data: { settings: remainingSettings },
   });
 
-  return apiSuccess({ disconnected: true });
-});
+    return apiSuccess({ disconnected: true });
+  });
+}

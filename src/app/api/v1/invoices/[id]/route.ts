@@ -3,11 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { withPermission, apiSuccess, apiError } from '@/lib/permissions';
 import { buildVatBreakdown } from '@/lib/utils/vat';
 
-export const GET = withPermission('invoices:read', async (
-  _request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'invoices.read', async (ctx) => {
   const invoice = await prisma.invoice.findFirst({
     where: { id: params.id, tenantId: ctx.tenantId },
     include: {
@@ -28,5 +26,6 @@ export const GET = withPermission('invoices:read', async (
     vatRate: item.product.vatRate,
   })));
 
-  return apiSuccess({ ...invoice, vatBreakdown });
-});
+    return apiSuccess({ ...invoice, vatBreakdown });
+  });
+}

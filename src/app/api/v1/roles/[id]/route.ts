@@ -10,11 +10,9 @@ const roleUpdateSchema = z.object({
   permissions: z.array(z.enum(ALL_PERMISSIONS as [string, ...string[]])).optional(),
 });
 
-export const GET = withPermission('roles:read', async (
-  _request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'team.read', async (ctx) => {
   const role = await prisma.role.findFirst({
     where: { id: params.id, tenantId: ctx.tenantId },
     include: { _count: { select: { users: true } } },
@@ -22,14 +20,13 @@ export const GET = withPermission('roles:read', async (
 
   if (!role) return apiError('NOT_FOUND', 'Rôle introuvable', 404);
 
-  return apiSuccess(role);
-});
+    return apiSuccess(role);
+  });
+}
 
-export const PATCH = withPermission('roles:manage', async (
-  request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'team.manage', async (ctx) => {
   let body: unknown;
   try { body = await request.json(); } catch {
     return apiError('INVALID_JSON', 'Corps de requête invalide', 400);
@@ -60,14 +57,13 @@ export const PATCH = withPermission('roles:manage', async (
     },
   });
 
-  return apiSuccess(updated);
-});
+    return apiSuccess(updated);
+  });
+}
 
-export const DELETE = withPermission('roles:manage', async (
-  _request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'team.manage', async (ctx) => {
   const role = await prisma.role.findFirst({
     where: { id: params.id, tenantId: ctx.tenantId },
     include: { _count: { select: { users: true } } },
@@ -80,5 +76,6 @@ export const DELETE = withPermission('roles:manage', async (
 
   await prisma.role.delete({ where: { id: params.id } });
 
-  return apiNoContent();
-});
+    return apiNoContent();
+  });
+}

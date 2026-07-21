@@ -6,10 +6,8 @@ import sharp from 'sharp';
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
 
-export const POST = withPermission('cms:write', async (
-  request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function POST(request: NextRequest) {
+  return withPermission(request, 'cms.write', async (ctx) => {
   const formData = await request.formData().catch(() => null);
   if (!formData) return apiError('INVALID_FORM', 'FormData invalide', 400);
 
@@ -45,8 +43,9 @@ export const POST = withPermission('cms:write', async (
     data: { logo: logoUrl },
   });
 
-  return NextResponse.json(
-    { success: true, data: { url: logoUrl, size: logoBuffer.byteLength } },
-    { status: 201 }
-  );
-});
+    return NextResponse.json(
+      { success: true, data: { url: logoUrl, size: logoBuffer.byteLength } },
+      { status: 201 }
+    );
+  });
+}

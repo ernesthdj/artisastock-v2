@@ -1,12 +1,13 @@
 'use client';
-
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useCartStore } from '@/store/cart';
 import { formatPrice } from '@/lib/utils/format';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 
-export default function CartPage({ params }: { params: { tenantSlug: string } }) {
+export default function CartPage() {
+  const params = useParams<{ tenantSlug: string }>();
   const { items, updateQuantity, removeItem, totalTTC } = useCartStore();
 
   if (items.length === 0) {

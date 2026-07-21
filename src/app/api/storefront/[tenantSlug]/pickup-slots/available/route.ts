@@ -9,10 +9,8 @@ const DAY_MAP: Record<number, DayOfWeek> = {
   5: 'FRIDAY', 6: 'SATURDAY', 0: 'SUNDAY',
 };
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { tenantSlug: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ tenantSlug: string }> }) {
+  const params = await props.params;
   const tenant = await prisma.tenant.findUnique({
     where: { slug: params.tenantSlug, isActive: true },
     select: { id: true },

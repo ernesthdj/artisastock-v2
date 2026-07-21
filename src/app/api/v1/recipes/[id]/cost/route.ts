@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { withPermission, apiSuccess, apiError } from '@/lib/permissions';
 import { calculateRecipeCost, calculatePriceTTC } from '@/lib/costs';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'recipes.read', async (ctx) => {
     const recipe = await prisma.recipe.findFirst({
       where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null },

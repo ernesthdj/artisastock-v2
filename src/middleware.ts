@@ -59,7 +59,7 @@ async function verifyJwtEdge(token: string, secret: string): Promise<JwtPayload 
     const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
     const signature = base64UrlDecode(signatureB64);
 
-    const valid = await crypto.subtle.verify('HMAC', key, signature, data);
+    const valid = await crypto.subtle.verify('HMAC', key, signature as BufferSource, data as BufferSource);
     if (!valid) return null;
 
     const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(payloadB64)));

@@ -7,8 +7,9 @@ import { fr } from 'date-fns/locale';
 // Route publique — suivi de commande par token
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { tenantSlug: string; trackingToken: string } }
+  props: { params: Promise<{ tenantSlug: string; trackingToken: string }> }
 ) {
+  const params = await props.params;
   const tenant = await prisma.tenant.findUnique({
     where: { slug: params.tenantSlug, isActive: true },
     select: { id: true, name: true },

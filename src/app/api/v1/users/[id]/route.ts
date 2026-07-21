@@ -10,11 +10,9 @@ const userUpdateSchema = z.object({
   lastName: z.string().min(1).max(100).optional(),
 });
 
-export const GET = withPermission('users:read', async (
-  _request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'team.read', async (ctx) => {
   const user = await prisma.user.findFirst({
     where: { id: params.id, tenantId: ctx.tenantId },
     select: {
@@ -26,14 +24,13 @@ export const GET = withPermission('users:read', async (
 
   if (!user) return apiError('NOT_FOUND', 'Utilisateur introuvable', 404);
 
-  return apiSuccess(user);
-});
+    return apiSuccess(user);
+  });
+}
 
-export const PATCH = withPermission('users:manage', async (
-  request: NextRequest,
-  ctx: { tenantId: string; userId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'team.manage', async (ctx) => {
   let body: unknown;
   try { body = await request.json(); } catch {
     return apiError('INVALID_JSON', 'Corps de requête invalide', 400);
@@ -79,5 +76,6 @@ export const PATCH = withPermission('users:manage', async (
     await prisma.session.deleteMany({ where: { userId: params.id } });
   }
 
-  return apiSuccess(updated);
-});
+    return apiSuccess(updated);
+  });
+}

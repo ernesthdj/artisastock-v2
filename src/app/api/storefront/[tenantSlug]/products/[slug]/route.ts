@@ -5,8 +5,9 @@ import { apiSuccess, apiError } from '@/lib/permissions';
 // Route publique — pas d'auth requise
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { tenantSlug: string; slug: string } }
+  props: { params: Promise<{ tenantSlug: string; slug: string }> }
 ) {
+  const params = await props.params;
   const tenant = await prisma.tenant.findUnique({
     where: { slug: params.tenantSlug, isActive: true },
     select: { id: true },

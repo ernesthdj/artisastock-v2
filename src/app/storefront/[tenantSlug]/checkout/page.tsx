@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useCartStore } from '@/store/cart';
 import { toast } from 'sonner';
 import { Loader2, Calendar, Clock } from 'lucide-react';
@@ -36,7 +36,8 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export default function CheckoutPage({ params }: { params: { tenantSlug: string } }) {
+export default function CheckoutPage() {
+  const params = useParams<{ tenantSlug: string }>();
   const router = useRouter();
   const { items, totalTTC, clearCart } = useCartStore();
   const [selectedDate, setSelectedDate] = useState('');

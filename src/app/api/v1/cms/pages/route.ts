@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { withPermission, apiCreated, apiError, apiSuccess } from '@/lib/permissions';
 import { z } from 'zod';
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
         title: parsed.data.title,
         slug,
         metaDescription: parsed.data.metaDescription,
-        blocks: parsed.data.blocks,
+        blocks: parsed.data.blocks as unknown as Prisma.InputJsonValue,
         sortOrder: (maxOrder._max.sortOrder ?? 0) + 1,
       },
     });

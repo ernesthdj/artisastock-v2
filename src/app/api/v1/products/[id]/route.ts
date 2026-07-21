@@ -4,7 +4,8 @@ import { withPermission, apiSuccess, apiNoContent, apiError } from '@/lib/permis
 import { productUpdateSchema } from '@/lib/validators/product';
 import { calculatePriceTTC } from '@/lib/costs';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'products.read', async (ctx) => {
     const product = await prisma.product.findFirst({
       where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null },
@@ -16,7 +17,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   });
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'products.write', async (ctx) => {
     let body: unknown;
     try { body = await request.json(); } catch {
@@ -51,7 +53,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'products.delete', async (ctx) => {
     const existing = await prisma.product.findFirst({
       where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null },

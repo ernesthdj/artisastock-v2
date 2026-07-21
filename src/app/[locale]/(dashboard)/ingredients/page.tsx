@@ -4,19 +4,20 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { Plus, Search, AlertTriangle, MoreHorizontal, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, Search, AlertTriangle, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils/format';
 import { usePermissions } from '@/hooks/use-permissions';
 import { IngredientSheet } from '@/components/ingredients/IngredientSheet';
+import { Crumb, Btn, Input, Select, DataTable, type DataTableColumn } from '@/components/ui';
 
 interface Ingredient {
   id: string;
   name: string;
   category: string;
   unit: string;
-  pricePerUnit: number;
-  stockQuantity: number | null;
-  alertThreshold: number | null;
+  priceUnit: string;
+  stock: string;
+  alertThreshold: string;
   supplier?: { name: string } | null;
   isActive: boolean;
 }
@@ -42,10 +43,8 @@ export default function IngredientsPage() {
       const sp = new URLSearchParams({ page: String(page), pageSize: '25' });
       if (search) sp.set('search', search);
       if (categoryFilter) sp.set('category', categoryFilter);
-      const res = await apiClient.get<{ data: Ingredient[]; total: number; totalPages: number }>(
-        `/api/v1/ingredients?${sp}`
-      );
-      return res.data;
+      const res = await apiClient.get<Ingredient[]>(`/api/v1/ingredients?${sp}`);
+      return { data: res.data, total: res.meta?.total ?? 0, totalPages: res.meta?.totalPages ?? 1 };
     },
   });
 
@@ -56,7 +55,7 @@ export default function IngredientsPage() {
       toast.success('Ingrédient supprimé');
     },
     onError: (err) => {
-      if (err instanceof ApiError && err.code === 'INGREDIENT_IN_USE') {
+      if (err instanceof ApiError && err.code === 'CONSTRAINT') {
         toast.error('Cet ingrédient est utilisé dans des recettes');
       } else {
         toast.error('Erreur lors de la suppression');
@@ -64,8 +63,7 @@ export default function IngredientsPage() {
     },
   });
 
-  const isLowStock = (ing: Ingredient) =>
-    ing.stockQuantity !== null && ing.alertThreshold !== null && ing.stockQuantity <= ing.alertThreshold;
+  const isLowStock = (ing: Ingredient) => Number(ing.stock) <= Number(ing.alertThreshold);
 
   const handleDelete = (id: string, name: string) => {
     if (confirm(`Supprimer "${name}" ?`)) {
@@ -74,169 +72,143 @@ export default function IngredientsPage() {
     setOpenMenuId(null);
   };
 
-  const ingredients = (data as Record<string, unknown>)?.['data'] as Ingredient[] ?? [];
-  const total = (data as Record<string, unknown>)?.['total'] as number ?? 0;
-  const totalPages = (data as Record<string, unknown>)?.['totalPages'] as number ?? 1;
+  const ingredients = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 1;
+
+  const columns: DataTableColumn<Ingredient>[] = [
+    {
+      key: 'name',
+      label: 'Nom',
+      render: (ing) => (
+        <div className="flex items-center gap-2">
+          {isLowStock(ing) && <AlertTriangle size={14} className="text-or-400 flex-shrink-0" />}
+          <span className="font-medium text-choco-600">{ing.name}</span>
+        </div>
+      ),
+    },
+    { key: 'category', label: 'Catégorie', render: (ing) => CATEGORY_LABELS[ing.category] ?? ing.category },
+    {
+      key: 'stock',
+      label: 'Stock',
+      align: 'right',
+      render: (ing) => (
+        <span className={isLowStock(ing) ? 'text-[var(--color-warning)] font-semibold' : 'text-choco-500'}>
+          {Number(ing.stock)}
+        </span>
+      ),
+    },
+    { key: 'unit', label: 'Unité', align: 'right', render: (ing) => ing.unit },
+    { key: 'price', label: 'Prix/unité', align: 'right', render: (ing) => formatPrice(Number(ing.priceUnit)) },
+    {
+      key: 'actions',
+      label: '',
+      width: 40,
+      render: (ing) => (
+        <div className="relative">
+          <button
+            onClick={() => setOpenMenuId(openMenuId === ing.id ? null : ing.id)}
+            className="p-1 rounded hover:bg-[var(--surface-hover)] text-neutral-400"
+          >
+            <MoreHorizontal size={16} />
+          </button>
+          {openMenuId === ing.id && (
+            <div className="absolute right-0 top-7 z-10 bg-neutral-0 border border-[var(--line-2)] rounded-[var(--rx-card)] shadow-[var(--shadow-pop)] py-1 min-w-[140px]">
+              {can('ingredients.write') && (
+                <button
+                  onClick={() => { setEditingId(ing.id); setSheetOpen(true); setOpenMenuId(null); }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-erp-sm text-choco-500 hover:bg-[var(--surface-hover)]"
+                >
+                  <Edit size={14} /> Modifier
+                </button>
+              )}
+              {can('ingredients.delete') && (
+                <button
+                  onClick={() => handleDelete(ing.id, ing.name)}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-erp-sm text-framboise-400 hover:bg-[#FFE4E4]"
+                >
+                  <Trash2 size={14} /> Supprimer
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <nav className="text-xs text-neutral-400 mb-1">Dashboard &rsaquo; Ingrédients</nav>
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Ingrédients</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">{total} ingrédient{total !== 1 ? 's' : ''}</p>
+          <Crumb items={['Dashboard', 'Ingrédients']} className="mb-1" />
+          <h1 className="font-heading text-erp-2xl font-bold text-choco-600">Ingrédients</h1>
+          <p className="text-erp-sm text-neutral-500 mt-0.5">{total} ingrédient{total !== 1 ? 's' : ''}</p>
         </div>
-        {can('ingredients:write') && (
-          <button
-            onClick={() => { setEditingId(null); setSheetOpen(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <Plus size={16} />
+        {can('ingredients.write') && (
+          <Btn variant="primary" icon={<Plus size={14} />} onClick={() => { setEditingId(null); setSheetOpen(true); }}>
             Ajouter
-          </button>
+          </Btn>
         )}
       </div>
 
       {/* Toolbar */}
       <div className="flex gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-          <input
-            type="text"
-            placeholder="Rechercher..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full h-9 pl-9 pr-3 text-sm border border-neutral-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+        <Input
+          icon={<Search size={14} />}
+          placeholder="Rechercher..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          containerClassName="flex-1 min-w-[200px] max-w-sm"
+        />
+        <div className="w-[220px] flex-shrink-0">
+          <Select
+            value={categoryFilter}
+            onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+            options={[
+              { value: '', label: 'Toutes catégories' },
+              ...Object.entries(CATEGORY_LABELS).map(([k, v]) => ({ value: k, label: v })),
+            ]}
           />
         </div>
-        <select
-          value={categoryFilter}
-          onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-          className="h-9 px-3 text-sm border border-neutral-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          <option value="">Toutes catégories</option>
-          {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
-          ))}
-        </select>
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-100 dark:border-slate-700 bg-neutral-50 dark:bg-slate-700/50">
-                <th className="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-slate-300">Nom</th>
-                <th className="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-slate-300 hidden md:table-cell">Catégorie</th>
-                <th className="text-right px-4 py-3 font-semibold text-neutral-600 dark:text-slate-300">Stock</th>
-                <th className="text-right px-4 py-3 font-semibold text-neutral-600 dark:text-slate-300 hidden lg:table-cell">Unité</th>
-                <th className="text-right px-4 py-3 font-semibold text-neutral-600 dark:text-slate-300 hidden lg:table-cell">Prix/unité</th>
-                <th className="px-4 py-3 w-10"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                [...Array(10)].map((_, i) => (
-                  <tr key={i} className="border-b border-neutral-100 dark:border-slate-700">
-                    {[...Array(6)].map((_, j) => (
-                      <td key={j} className="px-4 py-3">
-                        <div className="h-4 bg-neutral-100 dark:bg-slate-700 rounded animate-skeleton" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : ingredients.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center text-neutral-500">
-                    <p className="text-lg mb-1">Aucun ingrédient</p>
-                    <p className="text-sm">Commencez par ajouter vos premiers ingrédients.</p>
-                  </td>
-                </tr>
-              ) : (
-                ingredients.map((ing) => (
-                  <tr
-                    key={ing.id}
-                    className={`data-table-row ${isLowStock(ing) ? 'data-table-row-warning' : ''}`}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {isLowStock(ing) && <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />}
-                        <span className="font-medium text-neutral-900 dark:text-white">{ing.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-neutral-500 hidden md:table-cell">
-                      {CATEGORY_LABELS[ing.category] ?? ing.category}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={isLowStock(ing) ? 'stock-alert font-semibold' : 'text-neutral-700 dark:text-slate-200'}>
-                        {ing.stockQuantity ?? '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-neutral-500 hidden lg:table-cell">{ing.unit}</td>
-                    <td className="px-4 py-3 text-right text-neutral-700 dark:text-slate-200 hidden lg:table-cell">
-                      {formatPrice(ing.pricePerUnit)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="relative">
-                        <button
-                          onClick={() => setOpenMenuId(openMenuId === ing.id ? null : ing.id)}
-                          className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-slate-700 text-neutral-400"
-                        >
-                          <MoreHorizontal size={16} />
-                        </button>
-                        {openMenuId === ing.id && (
-                          <div className="absolute right-0 top-7 z-10 bg-white dark:bg-slate-700 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg py-1 min-w-[140px]">
-                            {can('ingredients:write') && (
-                              <button
-                                onClick={() => { setEditingId(ing.id); setSheetOpen(true); setOpenMenuId(null); }}
-                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-neutral-700 dark:text-slate-200 hover:bg-neutral-50 dark:hover:bg-slate-600"
-                              >
-                                <Edit size={14} /> Modifier
-                              </button>
-                            )}
-                            {can('ingredients:delete') && (
-                              <button
-                                onClick={() => handleDelete(ing.id, ing.name)}
-                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                              >
-                                <Trash2 size={14} /> Supprimer
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div className="bg-neutral-0 rounded-[var(--rx-card)] border border-[var(--line-1)] shadow-[var(--shadow-card)] overflow-hidden">
+        {isLoading ? (
+          <div className="p-4 flex flex-col gap-2.5">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="h-8 bg-neutral-100 rounded animate-skeleton" />
+            ))}
+          </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={ingredients}
+            emptyState={
+              <div className="text-center py-12">
+                <p className="text-erp-lg text-neutral-500 mb-1">Aucun ingrédient</p>
+                <p className="text-erp-sm text-neutral-400">Commencez par ajouter vos premiers ingrédients.</p>
+              </div>
+            }
+          />
+        )}
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-100 dark:border-slate-700">
-            <p className="text-xs text-neutral-500">{total} résultats</p>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--line-1)]">
+            <p className="text-erp-xs text-neutral-500">{total} résultats</p>
             <div className="flex gap-2">
-              <button
-                onClick={() => setPage(page - 1)}
-                disabled={page <= 1}
-                className="px-3 py-1 text-xs border border-neutral-200 dark:border-slate-600 rounded hover:bg-neutral-50 disabled:opacity-40"
-              >
+              <Btn size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
                 Précédent
-              </button>
-              <span className="px-3 py-1 text-xs text-neutral-500">
+              </Btn>
+              <span className="px-3 py-1 text-erp-xs text-neutral-500">
                 {page} / {totalPages}
               </span>
-              <button
-                onClick={() => setPage(page + 1)}
-                disabled={page >= totalPages}
-                className="px-3 py-1 text-xs border border-neutral-200 dark:border-slate-600 rounded hover:bg-neutral-50 disabled:opacity-40"
-              >
+              <Btn size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
                 Suivant
-              </button>
+              </Btn>
             </div>
           </div>
         )}

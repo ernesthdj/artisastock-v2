@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { withPermission, apiSuccess, apiError } from '@/lib/permissions';
 import { productVisibilitySchema } from '@/lib/validators/product';
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'products.write', async (ctx) => {
     let body: unknown;
     try { body = await request.json(); } catch {

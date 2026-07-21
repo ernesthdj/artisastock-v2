@@ -11,11 +11,9 @@ const slotUpdateSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export const PATCH = withPermission('settings:write', async (
-  request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'settings.write', async (ctx) => {
   let body: unknown;
   try { body = await request.json(); } catch {
     return apiError('INVALID_JSON', 'Corps de requête invalide', 400);
@@ -34,14 +32,13 @@ export const PATCH = withPermission('settings:write', async (
     data: parsed.data,
   });
 
-  return apiSuccess(updated);
-});
+    return apiSuccess(updated);
+  });
+}
 
-export const DELETE = withPermission('settings:write', async (
-  _request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'settings.write', async (ctx) => {
   const slot = await prisma.pickupSlot.findFirst({
     where: { id: params.id, tenantId: ctx.tenantId },
   });
@@ -49,5 +46,6 @@ export const DELETE = withPermission('settings:write', async (
 
   await prisma.pickupSlot.delete({ where: { id: params.id } });
 
-  return apiNoContent();
-});
+    return apiNoContent();
+  });
+}

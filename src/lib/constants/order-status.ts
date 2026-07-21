@@ -1,4 +1,5 @@
 import { OrderStatus } from '@prisma/client';
+import type { PillTone } from '@/components/ui/Pill';
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   NEW: 'Nouvelle',
@@ -7,6 +8,16 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   READY: 'Prête',
   PICKED_UP: 'Retirée',
   CANCELLED: 'Annulée',
+};
+
+// Source de vérité unique pour la couleur des statuts commande — consommé via <Pill tone={ORDER_STATUS_TONE[status]}>
+export const ORDER_STATUS_TONE: Record<OrderStatus, PillTone> = {
+  NEW: 'info',
+  CONFIRMED: 'ok',
+  IN_PREPARATION: 'warn',
+  READY: 'gold',
+  PICKED_UP: 'neutral',
+  CANCELLED: 'crit',
 };
 
 // Transitions valides : état actuel → états suivants autorisés

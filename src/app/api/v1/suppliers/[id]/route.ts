@@ -16,7 +16,8 @@ const supplierUpdateSchema = z.object({
   notes: z.string().max(1000).optional(),
 });
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'ingredients.read', async (ctx) => {
     const supplier = await prisma.supplier.findFirst({
       where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null },
@@ -28,7 +29,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   });
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'ingredients.write', async (ctx) => {
     let body: unknown;
     try { body = await request.json(); } catch {
@@ -48,7 +50,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'ingredients.delete', async (ctx) => {
     const existing = await prisma.supplier.findFirst({ where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null } });
     if (!existing) return apiError('NOT_FOUND', 'Fournisseur introuvable', 404);

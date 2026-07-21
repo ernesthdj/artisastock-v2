@@ -5,7 +5,8 @@ import { orderStatusSchema } from '@/lib/validators/order';
 import { isValidTransition } from '@/lib/constants/order-status';
 import { sendOrderReadyEmail } from '@/lib/email';
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'orders.manage', async (ctx) => {
     let body: unknown;
     try { body = await request.json(); } catch {

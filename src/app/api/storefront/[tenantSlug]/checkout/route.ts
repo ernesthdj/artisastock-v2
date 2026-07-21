@@ -5,10 +5,8 @@ import { checkoutSchema } from '@/lib/validators/order';
 import { createCheckoutSession } from '@/lib/stripe';
 import { parseISO } from 'date-fns';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { tenantSlug: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ tenantSlug: string }> }) {
+  const params = await props.params;
   let body: unknown;
   try { body = await request.json(); } catch {
     return apiError('INVALID_JSON', 'Corps de requête invalide', 400);

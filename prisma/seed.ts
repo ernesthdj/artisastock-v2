@@ -50,6 +50,7 @@ async function main() {
     'cms.read', 'cms.write', 'cms.publish',
     'team.read', 'team.manage',
     'settings.read', 'settings.write',
+    'bom.read', 'bom.write', 'bom.produce',
   ];
 
   const adminRole = await prisma.role.upsert({

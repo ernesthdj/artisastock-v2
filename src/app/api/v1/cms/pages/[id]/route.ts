@@ -13,25 +13,22 @@ const pageUpdateSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
-export const GET = withPermission('cms:read', async (
-  _request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'cms.read', async (ctx) => {
   const page = await prisma.page.findFirst({
     where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null },
   });
 
   if (!page) return apiError('NOT_FOUND', 'Page introuvable', 404);
 
-  return apiSuccess(page);
-});
+    return apiSuccess(page);
+  });
+}
 
-export const PATCH = withPermission('cms:write', async (
-  request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'cms.write', async (ctx) => {
   let body: unknown;
   try { body = await request.json(); } catch {
     return apiError('INVALID_JSON', 'Corps de requête invalide', 400);
@@ -66,14 +63,13 @@ export const PATCH = withPermission('cms:write', async (
     },
   });
 
-  return apiSuccess(updated);
-});
+    return apiSuccess(updated);
+  });
+}
 
-export const DELETE = withPermission('cms:write', async (
-  _request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'cms.write', async (ctx) => {
   const page = await prisma.page.findFirst({
     where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null },
   });
@@ -85,5 +81,6 @@ export const DELETE = withPermission('cms:write', async (
     data: { deletedAt: new Date() },
   });
 
-  return apiNoContent();
-});
+    return apiNoContent();
+  });
+}

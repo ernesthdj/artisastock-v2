@@ -1,12 +1,20 @@
 import { Resend } from 'resend';
 
-if (!process.env.RESEND_API_KEY) {
-  throw new Error('RESEND_API_KEY is not defined');
-}
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Email désactivé tant que RESEND_API_KEY n'est pas configuré — ne bloque jamais l'appelant
+// (inscription, invitation, etc. doivent réussir même sans service email branché).
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const FROM = process.env.RESEND_FROM_EMAIL ?? 'noreply@artisastock.be';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+
+async function sendEmail(params: { to: string; subject: string; html: string }): Promise<EmailResult> {
+  if (!resend) {
+    console.warn(`[email] RESEND_API_KEY non configuré — email "${params.subject}" à ${params.to} non envoyé`);
+    return { success: false, error: 'EMAIL_NOT_CONFIGURED' };
+  }
+  const { error } = await resend.emails.send({ from: FROM, ...params });
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -56,8 +64,7 @@ export async function sendVerificationEmail(params: {
 }): Promise<EmailResult> {
   const link = `${APP_URL}/auth/verify-email?token=${params.token}`;
 
-  const { error } = await resend.emails.send({
-    from: FROM,
+  return sendEmail({
     to: params.to,
     subject: 'Vérifiez votre adresse email — ArtisaStock',
     html: emailWrapper(`
@@ -67,9 +74,6 @@ export async function sendVerificationEmail(params: {
       <p>Ce lien expire dans 24 heures. Si vous n'avez pas créé de compte, ignorez cet email.</p>
     `),
   });
-
-  if (error) return { success: false, error: error.message };
-  return { success: true };
 }
 
 export async function sendPasswordResetEmail(params: {
@@ -79,8 +83,7 @@ export async function sendPasswordResetEmail(params: {
 }): Promise<EmailResult> {
   const link = `${APP_URL}/auth/reset-password?token=${params.token}`;
 
-  const { error } = await resend.emails.send({
-    from: FROM,
+  return sendEmail({
     to: params.to,
     subject: 'Réinitialisation de votre mot de passe — ArtisaStock',
     html: emailWrapper(`
@@ -91,9 +94,6 @@ export async function sendPasswordResetEmail(params: {
       <p>Ce lien expire dans 1 heure. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
     `),
   });
-
-  if (error) return { success: false, error: error.message };
-  return { success: true };
 }
 
 export async function sendOrderConfirmationEmail(params: {
@@ -121,8 +121,7 @@ export async function sendOrderConfirmationEmail(params: {
     )
     .join('');
 
-  const { error } = await resend.emails.send({
-    from: FROM,
+  return sendEmail({
     to: params.to,
     subject: `Commande confirmée — ${params.orderNumber} — ${params.tenantName}`,
     html: emailWrapper(`
@@ -150,9 +149,6 @@ export async function sendOrderConfirmationEmail(params: {
       <a href="${trackingUrl}" class="btn">Suivre ma commande</a>
     `),
   });
-
-  if (error) return { success: false, error: error.message };
-  return { success: true };
 }
 
 export async function sendOrderReadyEmail(params: {
@@ -162,8 +158,7 @@ export async function sendOrderReadyEmail(params: {
   tenantName: string;
   tenantAddress: string;
 }): Promise<EmailResult> {
-  const { error } = await resend.emails.send({
-    from: FROM,
+  return sendEmail({
     to: params.to,
     subject: `Votre commande est prête ! — ${params.orderNumber}`,
     html: emailWrapper(`
@@ -174,9 +169,6 @@ export async function sendOrderReadyEmail(params: {
       <p>Présentez simplement votre numéro de commande lors du retrait.</p>
     `),
   });
-
-  if (error) return { success: false, error: error.message };
-  return { success: true };
 }
 
 export async function sendStockAlertEmail(params: {
@@ -195,8 +187,7 @@ export async function sendStockAlertEmail(params: {
     )
     .join('');
 
-  const { error } = await resend.emails.send({
-    from: FROM,
+  return sendEmail({
     to: params.to,
     subject: `⚠️ Alerte stock — ${params.ingredients.length} ingrédient(s) sous le seuil`,
     html: emailWrapper(`
@@ -215,9 +206,6 @@ export async function sendStockAlertEmail(params: {
       <p>Pensez à réapprovisionner vos stocks !</p>
     `),
   });
-
-  if (error) return { success: false, error: error.message };
-  return { success: true };
 }
 
 export async function sendEmployeeInviteEmail(params: {
@@ -228,8 +216,7 @@ export async function sendEmployeeInviteEmail(params: {
 }): Promise<EmailResult> {
   const link = `${APP_URL}/auth/accept-invite/${params.token}`;
 
-  const { error } = await resend.emails.send({
-    from: FROM,
+  return sendEmail({
     to: params.to,
     subject: `Invitation à rejoindre ${params.tenantName} sur ArtisaStock`,
     html: emailWrapper(`
@@ -239,7 +226,4 @@ export async function sendEmployeeInviteEmail(params: {
       <p>Ce lien expire dans 7 jours.</p>
     `),
   });
-
-  if (error) return { success: false, error: error.message };
-  return { success: true };
 }

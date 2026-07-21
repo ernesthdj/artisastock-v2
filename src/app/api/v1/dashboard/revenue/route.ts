@@ -1,12 +1,10 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { withPermission, apiSuccess } from '@/lib/permissions';
+import { withAuth, apiSuccess } from '@/lib/permissions';
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 
-export const GET = withPermission('dashboard:read', async (
-  request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function GET(request: NextRequest) {
+  return withAuth(request, async (ctx) => {
   const sp = request.nextUrl.searchParams;
   const period = sp.get('period') ?? 'month'; // day | month | year
   const months = Math.min(12, Math.max(1, parseInt(sp.get('months') ?? '6', 10)));
@@ -62,5 +60,6 @@ export const GET = withPermission('dashboard:read', async (
     }
   }
 
-  return apiSuccess(data);
-});
+    return apiSuccess(data);
+  });
+}

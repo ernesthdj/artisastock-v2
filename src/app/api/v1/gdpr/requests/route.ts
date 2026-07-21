@@ -4,16 +4,14 @@ import { withPermission, apiSuccess, apiCreated, apiError, parsePagination } fro
 import { z } from 'zod';
 
 const gdprRequestSchema = z.object({
-  type: z.enum(['EXPORT', 'DELETE', 'RECTIFICATION']),
+  type: z.enum(['ACCESS', 'DELETION']),
   customerEmail: z.string().email(),
   details: z.string().max(1000).optional(),
 });
 
 // Liste des demandes RGPD — côté admin
-export const GET = withPermission('settings:read', async (
-  request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function GET(request: NextRequest) {
+  return withPermission(request, 'settings.read', async (ctx) => {
   const sp = request.nextUrl.searchParams;
   const { page, pageSize, skip } = parsePagination(sp);
   const status = sp.get('status') ?? undefined;
@@ -31,14 +29,13 @@ export const GET = withPermission('settings:read', async (
     prisma.gdprRequest.count({ where }),
   ]);
 
-  return apiSuccess({ data, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
-});
+    return apiSuccess({ data, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
+  });
+}
 
 // Créer une demande RGPD manuellement (admin)
-export const POST = withPermission('settings:write', async (
-  request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function POST(request: NextRequest) {
+  return withPermission(request, 'settings.write', async (ctx) => {
   let body: unknown;
   try { body = await request.json(); } catch {
     return apiError('INVALID_JSON', 'Corps de requête invalide', 400);
@@ -56,11 +53,13 @@ export const POST = withPermission('settings:write', async (
     data: {
       tenantId: ctx.tenantId,
       customerId: customer.id,
+      email: parsed.data.customerEmail,
       type: parsed.data.type,
       status: 'PENDING',
-      details: parsed.data.details ?? null,
+      notes: parsed.data.details ?? null,
     },
   });
 
-  return apiCreated(gdprRequest);
-});
+    return apiCreated(gdprRequest);
+  });
+}

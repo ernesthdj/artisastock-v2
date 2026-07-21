@@ -109,6 +109,8 @@ const config: Config = {
         'erp-md': '13.5px',
         'erp-lg': '15.5px',
         'erp-xl': '19px',
+        'erp-2xl': '26px',
+        'erp-3xl': '34px',
       },
       boxShadow: {
         'sh-1':    '0 1px 2px rgba(61,40,23,0.06), 0 1px 3px rgba(61,40,23,0.04)',

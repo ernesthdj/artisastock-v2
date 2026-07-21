@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { withPermission, apiSuccess, apiError } from '@/lib/permissions';
 import { z } from 'zod';
@@ -14,7 +15,8 @@ const blocksUpdateSchema = z.object({
   })),
 });
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'cms.write', async (ctx) => {
     let body: unknown;
     try { body = await request.json(); } catch {
@@ -48,7 +50,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     const updated = await prisma.page.update({
       where: { id: params.id },
-      data: { blocks: sanitizedBlocks },
+      data: { blocks: sanitizedBlocks as unknown as Prisma.InputJsonValue },
     });
 
     return apiSuccess(updated);

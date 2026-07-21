@@ -2,11 +2,9 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { withPermission, apiSuccess, apiError } from '@/lib/permissions';
 
-export const GET = withPermission('recipes:read', async (
-  _request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'recipes.read', async (ctx) => {
   const recipe = await prisma.recipe.findFirst({
     where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null },
     select: { id: true },
@@ -23,5 +21,6 @@ export const GET = withPermission('recipes:read', async (
     },
   });
 
-  return apiSuccess(versions);
-});
+    return apiSuccess(versions);
+  });
+}

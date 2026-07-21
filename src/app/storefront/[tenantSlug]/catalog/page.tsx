@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useCartStore } from '@/store/cart';
 import { toast } from 'sonner';
@@ -22,7 +23,8 @@ interface Product {
   stockQuantity: number | null;
 }
 
-export default function CatalogPage({ params }: { params: { tenantSlug: string } }) {
+export default function CatalogPage() {
+  const params = useParams<{ tenantSlug: string }>();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const addItem = useCartStore((s) => s.addItem);

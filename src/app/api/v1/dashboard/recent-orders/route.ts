@@ -1,11 +1,9 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { withPermission, apiSuccess } from '@/lib/permissions';
+import { withAuth, apiSuccess } from '@/lib/permissions';
 
-export const GET = withPermission('dashboard:read', async (
-  request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function GET(request: NextRequest) {
+  return withAuth(request, async (ctx) => {
   const limit = Math.min(20, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') ?? '10', 10)));
 
   const orders = await prisma.order.findMany({
@@ -18,5 +16,6 @@ export const GET = withPermission('dashboard:read', async (
     },
   });
 
-  return apiSuccess(orders);
-});
+    return apiSuccess(orders);
+  });
+}

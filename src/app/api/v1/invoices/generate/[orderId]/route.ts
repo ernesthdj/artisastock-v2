@@ -3,9 +3,10 @@ import { prisma } from '@/lib/prisma';
 import { withPermission, apiCreated, apiError } from '@/lib/permissions';
 import { generateInvoiceNumber } from '@/lib/costs';
 import { buildVatBreakdown } from '@/lib/utils/vat';
-import { VatRate } from '@prisma/client';
+import { VatRate, type Prisma } from '@prisma/client';
 
-export async function POST(request: NextRequest, { params }: { params: { orderId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ orderId: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'invoices.generate', async (ctx) => {
     const order = await prisma.order.findFirst({
       where: { id: params.orderId, tenantId: ctx.tenantId },
@@ -60,8 +61,8 @@ export async function POST(request: NextRequest, { params }: { params: { orderId
         totalHT: Number(order.totalHT),
         totalTVA: Number(order.totalTVA),
         totalTTC: Number(order.totalTTC),
-        vatBreakdown,
-        lines,
+        vatBreakdown: vatBreakdown as unknown as Prisma.InputJsonValue,
+        lines: lines as unknown as Prisma.InputJsonValue,
       },
     });
 

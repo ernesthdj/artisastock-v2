@@ -6,6 +6,7 @@ import { useLocale } from 'next-intl';
 import { useAuth } from '@/providers/AuthProvider';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { AppTitleBar } from '@/components/layout/AppTitleBar';
+import { AppStatusBar } from '@/components/layout/AppStatusBar';
 import { Loader2 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -41,12 +42,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       */}
       <AppSidebar />
 
-      {/* Main content — flex:1, offset top for TitleBar */}
-      <main style={{ flex: 1, minWidth: 0, paddingTop: 38, minHeight: '100vh' }}>
+      {/* Main content — flex:1, offset top for TitleBar, bottom for StatusBar */}
+      <main style={{ flex: 1, minWidth: 0, paddingTop: 40, paddingBottom: 25, minHeight: '100vh' }}>
         <div style={{ padding: '24px 32px' }}>
           {children}
         </div>
       </main>
+
+      <AppStatusBar />
     </div>
   );
 }

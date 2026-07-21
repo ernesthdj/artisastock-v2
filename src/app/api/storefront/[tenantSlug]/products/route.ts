@@ -3,10 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError, apiPaginated, parsePagination } from '@/lib/permissions';
 
 // Route publique — pas d'auth requise
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { tenantSlug: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ tenantSlug: string }> }) {
+  const params = await props.params;
   const tenant = await prisma.tenant.findUnique({
     where: { slug: params.tenantSlug, isActive: true },
     select: { id: true },

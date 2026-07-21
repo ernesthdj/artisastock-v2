@@ -2,10 +2,8 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/permissions';
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { tenantSlug: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ tenantSlug: string }> }) {
+  const params = await props.params;
   const tenant = await prisma.tenant.findUnique({
     where: { slug: params.tenantSlug, isActive: true },
     select: { id: true, name: true, description: true, openingHours: true, address: true, phone: true, email: true },

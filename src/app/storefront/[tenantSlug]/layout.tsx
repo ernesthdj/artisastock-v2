@@ -18,7 +18,8 @@ async function getTenantConfig(tenantSlug: string) {
   }
 }
 
-export async function generateMetadata({ params }: { params: { tenantSlug: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ tenantSlug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const data = await getTenantConfig(params.tenantSlug);
   if (!data) return { title: 'Boutique introuvable' };
 
@@ -31,13 +32,18 @@ export async function generateMetadata({ params }: { params: { tenantSlug: strin
   };
 }
 
-export default async function StorefrontLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: { tenantSlug: string };
-}) {
+export default async function StorefrontLayout(
+  props: {
+    children: React.ReactNode;
+    params: Promise<{ tenantSlug: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    children
+  } = props;
+
   const data = await getTenantConfig(params.tenantSlug);
   if (!data || !data.config?.isPublished) notFound();
 

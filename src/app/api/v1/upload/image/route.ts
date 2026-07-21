@@ -5,10 +5,8 @@ import sharp from 'sharp';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-export const POST = withAuth(async (
-  request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function POST(request: NextRequest) {
+  return withAuth(request, async (ctx) => {
   const formData = await request.formData().catch(() => null);
   if (!formData) return apiError('INVALID_FORM', 'FormData invalide', 400);
 
@@ -34,8 +32,9 @@ export const POST = withAuth(async (
   // TODO: Remplacer par upload vers bucket configuré
   const mockUrl = `https://cdn.artisastock.be/${ctx.tenantId}/images/${Date.now()}.webp`;
 
-  return NextResponse.json(
-    { success: true, data: { url: mockUrl, size: optimized.byteLength } },
-    { status: 201 }
-  );
-});
+    return NextResponse.json(
+      { success: true, data: { url: mockUrl, size: optimized.byteLength } },
+      { status: 201 }
+    );
+  });
+}

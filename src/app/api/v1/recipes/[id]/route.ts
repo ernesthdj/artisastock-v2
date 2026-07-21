@@ -4,7 +4,8 @@ import { withPermission, apiSuccess, apiNoContent, apiError } from '@/lib/permis
 import { recipeUpdateSchema } from '@/lib/validators/recipe';
 import { calculateRecipeCost } from '@/lib/costs';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'recipes.read', async (ctx) => {
     const recipe = await prisma.recipe.findFirst({
       where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null },
@@ -22,7 +23,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   });
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'recipes.write', async (ctx) => {
     let body: unknown;
     try {
@@ -127,7 +129,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return withPermission(request, 'recipes.delete', async (ctx) => {
     const existing = await prisma.recipe.findFirst({
       where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null },

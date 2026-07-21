@@ -4,11 +4,9 @@ import { withPermission, apiError } from '@/lib/permissions';
 import { generateInvoicePdf } from '@/lib/pdf';
 import { buildVatBreakdown } from '@/lib/utils/vat';
 
-export const GET = withPermission('invoices:read', async (
-  _request: NextRequest,
-  ctx: { tenantId: string },
-  { params }: { params: { id: string } }
-) => {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return withPermission(request, 'invoices.read', async (ctx) => {
   const invoice = await prisma.invoice.findFirst({
     where: { id: params.id, tenantId: ctx.tenantId },
     include: {
@@ -32,12 +30,13 @@ export const GET = withPermission('invoices:read', async (
 
   const pdfBuffer = await generateInvoicePdf({ invoice, vatBreakdown });
 
-  return new NextResponse(pdfBuffer, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="facture-${invoice.invoiceNumber}.pdf"`,
-      'Content-Length': pdfBuffer.byteLength.toString(),
-    },
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="facture-${invoice.invoiceNumber}.pdf"`,
+        'Content-Length': pdfBuffer.byteLength.toString(),
+      },
+    });
   });
-});
+}

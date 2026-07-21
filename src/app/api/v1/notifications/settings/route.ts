@@ -10,10 +10,8 @@ const notificationSettingsSchema = z.object({
   stockAlertThresholdOverride: z.number().int().min(0).optional(),
 });
 
-export const GET = withAuth(async (
-  _request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function GET(request: NextRequest) {
+  return withAuth(request, async (ctx) => {
   const tenant = await prisma.tenant.findUnique({
     where: { id: ctx.tenantId },
     select: { settings: true },
@@ -27,13 +25,12 @@ export const GET = withAuth(async (
     emailOnOrderReady: true,
   }) as Record<string, unknown>;
 
-  return apiSuccess(notifications);
-});
+    return apiSuccess(notifications);
+  });
+}
 
-export const PATCH = withAuth(async (
-  request: NextRequest,
-  ctx: { tenantId: string }
-) => {
+export async function PATCH(request: NextRequest) {
+  return withAuth(request, async (ctx) => {
   let body: unknown;
   try { body = await request.json(); } catch {
     return apiError('INVALID_JSON', 'Corps de requête invalide', 400);
@@ -58,5 +55,6 @@ export const PATCH = withAuth(async (
     data: { settings: { ...settings, notifications: updatedNotifications } },
   });
 
-  return apiSuccess(updatedNotifications);
-});
+    return apiSuccess(updatedNotifications);
+  });
+}

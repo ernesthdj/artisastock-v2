@@ -8,16 +8,15 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { X, Loader2 } from 'lucide-react';
+import { UnitOfMeasure } from '@prisma/client';
 import { cn } from '@/lib/utils/cn';
 
 const schema = z.object({
   name: z.string().min(1, 'Requis').max(200),
   category: z.string().min(1, 'Requis'),
-  unit: z.string().min(1, 'Requis'),
-  pricePerUnit: z.coerce.number().positive('Doit être > 0'),
-  packagingSize: z.coerce.number().optional(),
-  packagingPrice: z.coerce.number().optional(),
-  stockQuantity: z.coerce.number().min(0).optional(),
+  unit: z.nativeEnum(UnitOfMeasure, { errorMap: () => ({ message: 'Requis' }) }),
+  priceUnit: z.coerce.number().positive('Doit être > 0'),
+  stock: z.coerce.number().min(0).optional(),
   alertThreshold: z.coerce.number().min(0).optional(),
   supplierId: z.string().optional(),
   notes: z.string().max(1000).optional(),
@@ -44,7 +43,18 @@ const CATEGORIES = [
   { value: 'OTHER', label: 'Autre' },
 ];
 
-const UNITS = ['g', 'kg', 'ml', 'L', 'pce', 'dz', 'boîte', 'sachet'];
+const UNITS: Array<{ value: UnitOfMeasure; label: string }> = [
+  { value: 'KG', label: 'kg' },
+  { value: 'G', label: 'g' },
+  { value: 'MG', label: 'mg' },
+  { value: 'CG', label: 'cg' },
+  { value: 'L', label: 'L' },
+  { value: 'DL', label: 'dl' },
+  { value: 'CL', label: 'cl' },
+  { value: 'ML', label: 'ml' },
+  { value: 'PIECE', label: 'pièce' },
+  { value: 'DOZEN', label: 'douzaine' },
+];
 
 export function IngredientSheet({ open, onClose, ingredientId, onSuccess }: Props) {
   const isEdit = !!ingredientId;
@@ -61,8 +71,8 @@ export function IngredientSheet({ open, onClose, ingredientId, onSuccess }: Prop
   const { data: suppliers } = useQuery({
     queryKey: ['suppliers-list'],
     queryFn: async () => {
-      const res = await apiClient.get<{ data: Array<{ id: string; name: string }> }>('/api/v1/suppliers?pageSize=100');
-      return (res.data as Record<string, unknown>)['data'] as Array<{ id: string; name: string }>;
+      const res = await apiClient.get<Array<{ id: string; name: string }>>('/api/v1/suppliers?pageSize=100');
+      return res.data;
     },
   });
 
@@ -81,12 +91,17 @@ export function IngredientSheet({ open, onClose, ingredientId, onSuccess }: Prop
   }, [open, existing, isEdit, reset]);
 
   const onSubmit = async (data: FormData) => {
+    const payload = {
+      ...data,
+      supplierId: data.supplierId || undefined,
+      notes: data.notes || undefined,
+    };
     try {
       if (isEdit) {
-        await apiClient.patch(`/api/v1/ingredients/${ingredientId}`, data);
+        await apiClient.patch(`/api/v1/ingredients/${ingredientId}`, payload);
         toast.success('Ingrédient modifié');
       } else {
-        await apiClient.post('/api/v1/ingredients', data);
+        await apiClient.post('/api/v1/ingredients', payload);
         toast.success('Ingrédient créé');
       }
       onSuccess();
@@ -132,14 +147,14 @@ export function IngredientSheet({ open, onClose, ingredientId, onSuccess }: Prop
             <Field label="Unité" required error={errors.unit?.message}>
               <select {...register('unit')} className="form-input">
                 <option value="">Choisir...</option>
-                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                {UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
               </select>
             </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Prix / unité (€)" required error={errors.pricePerUnit?.message}>
-              <input {...register('pricePerUnit')} type="number" step="0.001" min="0" placeholder="0.800" className="form-input" />
+            <Field label="Prix / unité (€)" required error={errors.priceUnit?.message}>
+              <input {...register('priceUnit')} type="number" step="0.001" min="0" placeholder="0.800" className="form-input" />
             </Field>
 
             <Field label="Fournisseur" error={undefined}>
@@ -151,8 +166,8 @@ export function IngredientSheet({ open, onClose, ingredientId, onSuccess }: Prop
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Stock actuel" error={errors.stockQuantity?.message}>
-              <input {...register('stockQuantity')} type="number" step="0.01" min="0" placeholder="25" className="form-input" />
+            <Field label="Stock actuel" error={errors.stock?.message}>
+              <input {...register('stock')} type="number" step="0.01" min="0" placeholder="25" className="form-input" />
             </Field>
 
             <Field label="Seuil d'alerte" error={errors.alertThreshold?.message}>

@@ -8,18 +8,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { apiClient, ApiError } from '@/lib/api-client';
+import { passwordSchema } from '@/lib/validators/auth';
 import { Eye, EyeOff, Loader2, Check } from 'lucide-react';
 
 const schema = z.object({
-  tenantName: z.string().min(2, 'Minimum 2 caractères').max(100),
+  businessName: z.string().min(2, 'Minimum 2 caractères').max(100),
   firstName: z.string().min(1, 'Prénom requis').max(100),
   lastName: z.string().min(1, 'Nom requis').max(100),
   email: z.string().email('Email invalide'),
-  password: z
-    .string()
-    .min(8, 'Minimum 8 caractères')
-    .regex(/[A-Z]/, 'Une majuscule requise')
-    .regex(/[0-9]/, 'Un chiffre requis'),
+  password: passwordSchema,
   cgv: z.boolean().refine((v) => v, 'Vous devez accepter les CGV'),
 });
 
@@ -48,7 +45,7 @@ export default function RegisterPage() {
   const onSubmit = async (data: FormData) => {
     try {
       await apiClient.post('/api/v1/auth/register', {
-        tenantName: data.tenantName,
+        businessName: data.businessName,
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
@@ -57,7 +54,7 @@ export default function RegisterPage() {
       setSuccess(true);
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.code === 'EMAIL_ALREADY_EXISTS') {
+        if (err.code === 'CONFLICT') {
           toast.error('Cet email est déjà utilisé');
         } else {
           toast.error(err.message);
@@ -99,12 +96,12 @@ export default function RegisterPage() {
             Nom de votre commerce <span className="text-red-500">*</span>
           </label>
           <input
-            {...register('tenantName')}
+            {...register('businessName')}
             type="text"
             placeholder="Boulangerie Dupont"
             className="w-full h-10 px-3 rounded-md border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
-          {errors.tenantName && <p className="mt-1 text-xs text-red-600">{errors.tenantName.message}</p>}
+          {errors.businessName && <p className="mt-1 text-xs text-red-600">{errors.businessName.message}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
