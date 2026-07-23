@@ -29,6 +29,9 @@
 | 20 | apiClient déballe déjà `json.data` une fois — les endpoints paginés exposent `meta` séparément (`res.meta.total`), jamais `res.data.data` | src/lib/api-client.ts | 2026-07-21 |
 | 21 | src/lib/email.ts ne doit jamais throw au chargement du module si RESEND_API_KEY absent — ça crashe toute route qui l'importe (register, invite...) même sans jamais appeler l'envoi | src/lib/email.ts | 2026-07-21 |
 | 22 | withPermission/withAuth : signature réelle = `(request, permission?, handler)` — plusieurs routes API legacy avaient une signature à un seul argument jamais migrée, cassée depuis le début | src/lib/permissions.ts | 2026-07-21 |
+| 23 | Formulaire de création avec sous-ressources (ex. lignes BOM) : ne jamais poster vers une route imbriquée tant que le parent n'a pas d'id réel — construire les sous-éléments en mémoire et les envoyer atomiquement avec le POST de création du parent | src/app/api/v1/bom/sheets/route.ts, BomSheetEditor.tsx | 2026-07-23 |
+| 24 | N1 (Ingrédients) est un niveau BOM structurel, pas un niveau de production — protection absolue (non supprimable, aucune fiche BOM) distincte de la règle "dernier niveau supprimable" des niveaux N2+ | src/app/api/v1/bom/levels/[id]/route.ts, bom/sheets/route.ts | 2026-07-23 |
+| 25 | Unité de ligne BOM = reprise automatique de l'unité de l'ingrédient/sous-fiche sélectionné, filtrée par groupe via `compatibleUnits()` — jamais un select unité générique sur une ligne de nomenclature | src/lib/bom/units.ts, BomSheetEditor.tsx | 2026-07-23 |
 
 ## Historique
 
@@ -38,6 +41,11 @@
 **Résumé :** Import du design ArtisaStock depuis Claude Design (DesignSync MCP) — 14 primitives UI (Btn, Card, DataTable, Pill, etc.), chrome refait (TopBar/Sidebar/StatusBar), nouvelle nav Atelier/Contexte/Workflow/Stock&Achats/Référentiels/Boutique, restyle Hub/BOM/Ingrédients/Commandes. Déploiement production sur Vercel + Supabase (projet ArtisaStock réutilisé, mot de passe DB régénéré, schema poussé via `directUrl` pooler). Premier build de production jamais réussi pour ce projet — a mis au jour et corrigé une dette technique importante : migration Next.js 15 params async (codemod officiel + fixes manuels), 17 routes API avec signature `withPermission`/`withAuth` legacy cassée depuis leur création, contrat frontend/backend Ingredient incohérent (`priceUnit`/`stock` vs noms inventés), enum GDPR faux, route `recipes/duplicate` et `accept-invite` réécrites (référençaient des champs Prisma inexistants), credentials démo en dur retirés du login, module email rendu non-bloquant sans Resend configuré.
 **Branche :** master
 **Commits pushés :** 1 (`d819622`)
+
+### [2026-07-23 XX:XX] SESSION — End
+**Résumé :** Traduction fidèle de la logique métier V1 (docs/Traduction V1/, alimentée en continu par l'instance charlesnadejda-project) : module Activité (M:N Stock, 1:N Contexte, switcher Atelier) + module Lots/Achats complet (CRUD, 2 modes achat, HT/TVAC, DLC optionnelle, préremplissage depuis fiche ingrédient, conversion d'unité à l'affichage) + FIFO réel par lot (BomProductionLine.lotId, coût figé) + N1 (Ingrédients) rendu définitivement protégé (non supprimable, aucune fiche BOM/production, panel de raccourcis dédié). Audit + fix d'une faille multi-tenant critique (ActiviteStock non exclu du scoping automatique) et 2 IDOR sur bom/sheets. Fix bug rapporté par l'utilisateur : création de fiche BOM avec ajout d'ingrédient avant sauvegarde de l'en-tête → "Fiche BOM introuvable" (lignes désormais construites en mémoire et envoyées atomiquement avec l'en-tête). Amélioration UX rapportée par l'utilisateur : l'unité d'une ligne de nomenclature reprend automatiquement le groupe (masse/volume/pièce) de l'ingrédient/sous-fiche sélectionné. Brainstorm initial démarré pour un futur module POS (docs/FONDATION-POS.md, non implémenté).
+**Branche :** master
+**Commits pushés :** 1 (`d2adc48`)
 **Alerte session suivante :** Inscription (`/register`) doit maintenant fonctionner en prod — à confirmer par l'utilisateur. RESEND_API_KEY/STRIPE/UPLOADTHING/UPSTASH toujours non configurés en prod (choix "minimum viable") — emails et paiements restent inactifs jusqu'à ajout des clés.
 
 ### SESSION BOM-KANBAN — 2026-07-16 (hub end)
