@@ -85,28 +85,66 @@ export default function StocksLiaisonsPage() {
     onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Erreur'),
   });
 
+  // Mise à jour optimiste : la case se coche/décoche immédiatement (perçu comme instantané),
+  // la synchro serveur + invalidation des autres vues (switcher, liste activités) se fait
+  // en arrière-plan. Rollback sur erreur via le snapshot pris dans onMutate.
+  const toggleStockLink = (stockId: string, wasLinked: boolean) => {
+    const previousDetail = queryClient.getQueryData<ActiviteDetail>(['activite', selectedId]);
+    const previousActivites = queryClient.getQueryData<Activite[]>(['activites']);
+    const stock = allStocks.find((s) => s.id === stockId);
+
+    queryClient.setQueryData<ActiviteDetail | undefined>(['activite', selectedId], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        stocks: wasLinked
+          ? old.stocks.filter((s) => s.stockId !== stockId)
+          : [...old.stocks, { stockId, stock: stock ?? { id: stockId, name: '', description: null, isActive: true } }],
+      };
+    });
+    queryClient.setQueryData<Activite[] | undefined>(['activites'], (old) =>
+      old?.map((a) =>
+        a.id === selectedId
+          ? { ...a, _count: { stocks: (a._count?.stocks ?? 0) + (wasLinked ? -1 : 1) } }
+          : a
+      )
+    );
+
+    return { previousDetail, previousActivites };
+  };
+
+  const rollback = (ctx?: { previousDetail?: ActiviteDetail; previousActivites?: Activite[] }) => {
+    if (ctx?.previousDetail) queryClient.setQueryData(['activite', selectedId], ctx.previousDetail);
+    if (ctx?.previousActivites) queryClient.setQueryData(['activites'], ctx.previousActivites);
+  };
+
+  const settleLinkQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['activite', selectedId] });
+    queryClient.invalidateQueries({ queryKey: ['activites'] });
+    queryClient.invalidateQueries({ queryKey: ['activites-switcher'] });
+    queryClient.invalidateQueries({ queryKey: ['stocks'] });
+  };
+
   const linkMutation = useMutation({
     mutationFn: (stockId: string) =>
       apiClient.post(`/api/v1/activites/${selectedId}/stocks`, { stockId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['activite', selectedId] });
-      queryClient.invalidateQueries({ queryKey: ['activites'] });
-      queryClient.invalidateQueries({ queryKey: ['activites-switcher'] });
-      queryClient.invalidateQueries({ queryKey: ['stocks'] });
+    onMutate: (stockId: string) => toggleStockLink(stockId, false),
+    onError: (err: unknown, _stockId, ctx) => {
+      rollback(ctx);
+      toast.error(err instanceof Error ? err.message : 'Erreur');
     },
-    onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Erreur'),
+    onSettled: settleLinkQueries,
   });
 
   const unlinkMutation = useMutation({
     mutationFn: (stockId: string) =>
       apiClient.delete(`/api/v1/activites/${selectedId}/stocks/${stockId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['activite', selectedId] });
-      queryClient.invalidateQueries({ queryKey: ['activites'] });
-      queryClient.invalidateQueries({ queryKey: ['activites-switcher'] });
-      queryClient.invalidateQueries({ queryKey: ['stocks'] });
+    onMutate: (stockId: string) => toggleStockLink(stockId, true),
+    onError: (err: unknown, _stockId, ctx) => {
+      rollback(ctx);
+      toast.error(err instanceof Error ? err.message : 'Erreur');
     },
-    onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Erreur'),
+    onSettled: settleLinkQueries,
   });
 
   const createStockMutation = useMutation({
@@ -246,7 +284,7 @@ export default function StocksLiaisonsPage() {
                           <input
                             type="checkbox"
                             checked={linked}
-                            disabled={!can('stocks.write') || linkMutation.isPending || unlinkMutation.isPending}
+                            disabled={!can('stocks.write')}
                             onChange={() => {
                               if (linked) unlinkMutation.mutate(stock.id);
                               else linkMutation.mutate(stock.id);
