@@ -3,8 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { withAuth, apiSuccess, apiError } from '@/lib/permissions';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' });
-
 export async function GET(request: NextRequest) {
   return withAuth(request, async (ctx) => {
   const tenant = await prisma.tenant.findUnique({
@@ -19,6 +17,11 @@ export async function GET(request: NextRequest) {
   if (!accountId) {
     return apiSuccess({ connected: false, accountId: null, chargesEnabled: false, payoutsEnabled: false });
   }
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return apiError('NOT_CONFIGURED', 'Stripe n\'est pas configuré sur cette instance', 501);
+  }
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-02-24.acacia' });
 
   const account = await stripe.accounts.retrieve(accountId);
 

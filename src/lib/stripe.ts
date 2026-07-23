@@ -1,13 +1,22 @@
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not defined');
-}
+// Instanciation paresseuse : Stripe n'est pas encore activé en production, la clé peut être
+// absente. Ne jamais lever au chargement du module — ça casserait le build/toute route qui
+// importe ce fichier, même sans jamais appeler Stripe (même bug déjà corrigé pour email.ts).
+let _stripe: Stripe | null = null;
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2025-02-24.acacia',
-  typescript: true,
-});
+function getStripe(): Stripe {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY is not defined');
+  }
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-02-24.acacia',
+      typescript: true,
+    });
+  }
+  return _stripe;
+}
 
 export const VAT_RATES: Record<string, number> = {
   FOOD_6: 0.06,
@@ -46,7 +55,7 @@ export async function createCheckoutSession(params: {
     quantity: item.quantity,
   }));
 
-  return stripe.checkout.sessions.create(
+  return getStripe().checkout.sessions.create(
     {
       mode: 'payment',
       payment_method_types: ['card', 'bancontact', 'ideal'],
@@ -75,5 +84,5 @@ export function constructWebhookEvent(
 ): Stripe.Event {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) throw new Error('STRIPE_WEBHOOK_SECRET is not defined');
-  return stripe.webhooks.constructEvent(body, signature, secret);
+  return getStripe().webhooks.constructEvent(body, signature, secret);
 }

@@ -3,11 +3,14 @@ import { prisma } from '@/lib/prisma';
 import { withAuth, apiSuccess, apiError } from '@/lib/permissions';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' });
-
 // Initier l'onboarding Stripe Connect
 export async function POST(request: NextRequest) {
   return withAuth(request, async (ctx) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return apiError('NOT_CONFIGURED', 'Stripe n\'est pas configuré sur cette instance', 501);
+  }
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-02-24.acacia' });
+
   const tenant = await prisma.tenant.findUnique({
     where: { id: ctx.tenantId },
     select: { name: true, email: true, settings: true },
