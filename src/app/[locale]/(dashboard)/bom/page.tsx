@@ -8,6 +8,7 @@ import { Plus, Factory, MoreHorizontal, Edit, Trash2, Layers } from 'lucide-reac
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useActivite } from '@/providers/ActiviteProvider';
 import { BomContextSheet } from '@/components/bom/BomContextSheet';
 import { Card, Btn, Pill } from '@/components/ui';
 
@@ -16,6 +17,7 @@ interface BomContext {
   name: string;
   description: string | null;
   isActive: boolean;
+  activiteId: string;
   createdAt: string;
   _count: { levels: number };
 }
@@ -24,16 +26,18 @@ export default function BomPage() {
   const { locale } = useParams<{ locale: string }>();
   const queryClient = useQueryClient();
   const { can } = usePermissions();
+  const { activiteId, activite } = useActivite();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingContext, setEditingContext] = useState<BomContext | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<BomContext[]>({
-    queryKey: ['bom-contexts'],
+    queryKey: ['bom-contexts', activiteId],
     queryFn: async () => {
-      const res = await apiClient.get<BomContext[]>('/api/v1/bom/contexts?pageSize=50')
+      const res = await apiClient.get<BomContext[]>(`/api/v1/bom/contexts?pageSize=50&activiteId=${activiteId}`)
       return res.data
     },
+    enabled: !!activiteId,
   });
 
   const deleteMutation = useMutation({
@@ -66,11 +70,11 @@ export default function BomPage() {
               Nomenclature BOM
             </h1>
             <p className="text-erp-xs text-choco-400">
-              Bill of Materials — Contextes de fabrication
+              Bill of Materials — Contextes de fabrication{activite ? ` · ${activite.name}` : ''}
             </p>
           </div>
         </div>
-        {can('bom.write') && (
+        {can('bom.write') && !!activiteId && (
           <Btn variant="primary" icon={<Plus size={14} />} onClick={() => { setEditingContext(null); setSheetOpen(true); }}>
             Nouveau contexte
           </Btn>
@@ -78,7 +82,17 @@ export default function BomPage() {
       </div>
 
       {/* Content */}
-      {isLoading ? (
+      {!activiteId ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <Factory size={40} className="text-or-200 mb-4" />
+          <h2 className="text-erp-lg font-semibold text-choco-500 mb-1">
+            Aucune activité disponible
+          </h2>
+          <p className="text-erp-sm text-choco-400">
+            Créez d&apos;abord une activité (« Gérer les activités » dans la barre latérale) pour pouvoir organiser des contextes BOM.
+          </p>
+        </div>
+      ) : isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-32 rounded-xl bg-amber-50 dark:bg-amber-900/10 animate-pulse" />
@@ -161,7 +175,7 @@ export default function BomPage() {
         open={sheetOpen}
         onClose={() => { setSheetOpen(false); setEditingContext(null); }}
         editingId={editingContext?.id}
-        initialData={editingContext ? { name: editingContext.name, description: editingContext.description } : undefined}
+        initialData={editingContext ? { name: editingContext.name, description: editingContext.description, activiteId: editingContext.activiteId } : undefined}
       />
     </div>
   );

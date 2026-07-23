@@ -18,11 +18,22 @@ const GLOBAL_MODELS = new Set([
   'CookieConsent',
 ]);
 
+// Modèles sans colonne tenantId propre — scopés transitivement via un parent
+// (BomLevel/BomSheet/BomLine → BomContext.tenantId). Injecter tenantId dans leur
+// where/data échoue à l'exécution ("Unknown argument tenantId"). Chaque route qui
+// les manipule doit vérifier explicitement l'appartenance au tenant via le parent.
+const TENANT_SCOPED_VIA_PARENT = new Set([
+  'BomLevel',
+  'BomSheet',
+  'BomLine',
+  'ActiviteStock',
+]);
+
 export function getPrismaWithTenant(tenantId: string) {
   return prisma.$extends({
     query: {
       $allOperations({ model, operation, args, query }) {
-        if (!model || GLOBAL_MODELS.has(model)) return query(args);
+        if (!model || GLOBAL_MODELS.has(model) || TENANT_SCOPED_VIA_PARENT.has(model)) return query(args);
 
         const readOps = new Set(['findMany', 'findFirst', 'findUnique', 'count', 'aggregate', 'groupBy']);
         const createOps = new Set(['create', 'createMany']);

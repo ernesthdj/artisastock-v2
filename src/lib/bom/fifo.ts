@@ -1,7 +1,4 @@
-// src/lib/bom/fifo.ts — Consommation stock BOM (MVP: Ingredient.stock direct)
-// NOTE MVP : pas de lots d'ingrédients (IngredientBatch) dans le schéma v2.
-// consumeFIFO décrémente directement Ingredient.stock.
-// Le vrai FIFO sur lots sera implémenté lors du module Achats/Lots.
+// src/lib/bom/fifo.ts — Consommation FIFO réelle sur les lots d'ingrédients (date_achat ASC)
 
 import { PrismaClient, UnitOfMeasure } from '@prisma/client'
 import { convert } from './units'
@@ -27,7 +24,9 @@ export interface AvailabilityResult {
 
 /**
  * Vérifie la disponibilité du stock pour produire nBatches lots de sheetId.
- * Hors transaction — simulation uniquement (risque TOCTOU).
+ * Hors transaction — simulation uniquement (risque TOCTOU, re-vérifié dans consumeFIFO).
+ * S'appuie sur Ingredient.stock (dénormalisation = somme des Lot.quantityAvailable,
+ * maintenue transactionnellement par le module Achats et par consumeFIFO).
  */
 export async function checkAvailability(
   sheetId: string,
@@ -80,9 +79,10 @@ export interface ConsumeParams {
 }
 
 /**
- * Consomme le stock ingrédient dans une transaction Prisma.
- * Re-vérifie la disponibilité (anti-TOCTOU) avant de décrémenter.
- * Insère une BomProductionLine par ingrédient consommé.
+ * Consomme les lots d'ingrédients en FIFO strict (purchaseDate ASC) dans une transaction Prisma.
+ * Une BomProductionLine est créée par lot réellement touché (traçabilité fine, pas un agrégat
+ * par ingrédient) — le coût gelé de chaque ligne est celui du lot consommé, jamais recalculé
+ * après coup. Ingredient.stock reste synchronisé (somme des lots) à chaque décrément.
  */
 export async function consumeFIFO(
   params: ConsumeParams,
@@ -104,39 +104,53 @@ export async function consumeFIFO(
     if (!line.ingredient) continue
 
     const required = Number(line.quantity) * nBatches
-    const requiredInIngUnit = convert(required, line.unit, line.ingredient.unit)
+    let remaining = convert(required, line.unit, line.ingredient.unit)
+    const totalRequired = remaining
 
-    // Re-vérification dans la transaction (anti-TOCTOU)
-    const freshIngredient = await tx.ingredient.findUniqueOrThrow({
-      where: { id: line.ingredient.id },
-      select: { stock: true, priceUnit: true },
+    // Re-lecture FIFO dans la transaction (anti-TOCTOU) : lots les plus anciens d'abord
+    const lots = await tx.lot.findMany({
+      where: { ingredientId: line.ingredient.id, quantityAvailable: { gt: 0 } },
+      orderBy: { purchaseDate: 'asc' },
     })
 
-    const currentStock = Number(freshIngredient.stock)
-
-    if (currentStock < requiredInIngUnit - TOLERANCE) {
+    const totalAvailable = lots.reduce((sum, l) => sum + Number(l.quantityAvailable), 0)
+    if (totalAvailable < remaining - TOLERANCE) {
       throw new Error(
         `Stock insuffisant pour "${line.ingredient.name}" : ` +
-        `requis ${requiredInIngUnit.toFixed(4)} ${line.ingredient.unit}, ` +
-        `disponible ${currentStock.toFixed(4)} ${line.ingredient.unit}`
+        `requis ${remaining.toFixed(4)} ${line.ingredient.unit}, ` +
+        `disponible ${totalAvailable.toFixed(4)} ${line.ingredient.unit}`
       )
     }
 
-    // Décrémenter le stock
+    for (const lot of lots) {
+      if (remaining <= TOLERANCE) break
+
+      const available = Number(lot.quantityAvailable)
+      const consumed = Math.min(available, remaining)
+
+      await tx.lot.update({
+        where: { id: lot.id },
+        data: { quantityAvailable: { decrement: consumed } },
+      })
+
+      await tx.bomProductionLine.create({
+        data: {
+          productionId,
+          sourceType: 'LOT_INGREDIENT',
+          ingredientId: line.ingredient.id,
+          lotId: lot.id,
+          qtyConsumed: consumed,
+          unitCostAtTime: Number(lot.unitPrice),
+        },
+      })
+
+      remaining -= consumed
+    }
+
+    // Ingredient.stock suit la somme des lots — décrémenté du même montant que consommé au total
     await tx.ingredient.update({
       where: { id: line.ingredient.id },
-      data: { stock: { decrement: requiredInIngUnit } },
-    })
-
-    // Enregistrer la ligne de production
-    await tx.bomProductionLine.create({
-      data: {
-        productionId,
-        sourceType: 'LOT_INGREDIENT',
-        ingredientId: line.ingredient.id,
-        qtyConsumed: requiredInIngUnit,
-        unitCostAtTime: Number(freshIngredient.priceUnit),
-      },
+      data: { stock: { decrement: totalRequired } },
     })
   }
 }

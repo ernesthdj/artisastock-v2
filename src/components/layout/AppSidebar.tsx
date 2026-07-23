@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, X, Menu } from 'lucide-react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useBomContexts } from '@/hooks/use-bom-contexts';
+import { useActivite } from '@/providers/ActiviteProvider';
 import { apiClient } from '@/lib/api-client';
 import { NAV_GROUPS, type NavItem } from '@/lib/constants/nav';
 import { cn } from '@/lib/utils/cn';
@@ -58,8 +58,14 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [contexteId, setContexteId] = useState<string>('');
+  const { activites, activiteId, setActiviteId, isLoading: activitesLoading } = useActivite();
 
-  const { data: contexts = [] } = useBomContexts();
+  const { data: contexts = [] } = useBomContexts(activiteId);
+
+  // Changer d'activité invalide la sélection de contexte courante (elle appartient à une autre activité).
+  useEffect(() => {
+    setContexteId('');
+  }, [activiteId]);
 
   const { data: pendingCount } = useQuery({
     queryKey: ['orders-pending-count'],
@@ -83,22 +89,39 @@ export function AppSidebar() {
       {!collapsed && (
         <div className="p-3 pb-2.5">
           <SideLabel collapsed={collapsed}>Atelier</SideLabel>
-          <div className="flex items-center gap-2 py-2 px-2 bg-or-400/10 border border-or-400/30 rounded-[5px] cursor-default">
+          <div className="flex items-center gap-2 py-2 px-2 bg-or-400/10 border border-or-400/30 rounded-[5px]">
             <span className="w-[26px] h-[26px] rounded-[4px] bg-gradient-to-br from-or-400 to-framboise-500 inline-flex items-center justify-center text-[13px] flex-shrink-0">
               🏷
             </span>
             <div className="flex-1 min-w-0">
-              <div className="text-erp-xs font-bold text-white">Charles &amp; Nadejda</div>
-              <div className="text-[10.5px] text-[#F5E6D3]/55">Pâtisserie artisanale</div>
+              {activitesLoading ? (
+                <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
+              ) : activites.length === 0 ? (
+                <div className="text-erp-xs font-bold text-white">Aucune activité</div>
+              ) : (
+                <select
+                  value={activiteId}
+                  onChange={(e) => setActiviteId(e.target.value)}
+                  className="w-full bg-transparent text-erp-xs font-bold text-white border-0 outline-none cursor-pointer -ml-0.5"
+                >
+                  {activites.map((a) => (
+                    <option key={a.id} value={a.id} className="text-choco-900">
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <div className="text-[10.5px] text-[#F5E6D3]/55">
+                {activites.length === 0 ? 'Créez votre première activité' : 'Activité en cours'}
+              </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => toast.info('Gestion des activités bientôt disponible')}
-            className="mt-1.5 text-[11px] text-or-400/85 inline-flex items-center gap-1 bg-transparent border-0 p-0 cursor-pointer"
+          <Link
+            href="/stocks-liaisons"
+            className="mt-1.5 text-[11px] text-or-400/85 inline-flex items-center gap-1 hover:text-or-300"
           >
             ⚙ Gérer les activités
-          </button>
+          </Link>
         </div>
       )}
 

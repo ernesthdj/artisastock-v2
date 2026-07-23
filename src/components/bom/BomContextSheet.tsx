@@ -1,17 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { X } from 'lucide-react';
+import { X, Plus, Minus } from 'lucide-react';
+import { useActivite } from '@/providers/ActiviteProvider';
 
 const schema = z.object({
   name: z.string().min(1, 'Nom requis').max(100),
   description: z.string().max(500).optional(),
+  activiteId: z.string().min(1, 'Activité requise'),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -20,28 +22,36 @@ interface Props {
   open: boolean;
   onClose: () => void;
   editingId?: string | null;
-  initialData?: { name: string; description?: string | null };
+  initialData?: { name: string; description?: string | null; activiteId?: string };
 }
 
 export function BomContextSheet({ open, onClose, editingId, initialData }: Props) {
   const queryClient = useQueryClient();
+  const { activites, activiteId: currentActiviteId } = useActivite();
+  // Niveaux de transformation saisis à la création (mirroring FrmBomContexteEdit) — N1 défaut "Ingrédients".
+  const [levelNames, setLevelNames] = useState<string[]>(['Ingrédients']);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', description: '' },
+    defaultValues: { name: '', description: '', activiteId: '' },
   });
 
   useEffect(() => {
     if (open) {
-      reset({ name: initialData?.name ?? '', description: initialData?.description ?? '' });
+      reset({
+        name: initialData?.name ?? '',
+        description: initialData?.description ?? '',
+        activiteId: initialData?.activiteId ?? currentActiviteId,
+      });
+      setLevelNames(['Ingrédients']);
     }
-  }, [open, initialData, reset]);
+  }, [open, initialData, currentActiviteId, reset]);
 
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
       editingId
         ? apiClient.patch(`/api/v1/bom/contexts/${editingId}`, data)
-        : apiClient.post('/api/v1/bom/contexts', data),
+        : apiClient.post('/api/v1/bom/contexts', { ...data, levels: levelNames }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bom-contexts'] });
       toast.success(editingId ? 'Contexte mis à jour' : 'Contexte créé');
@@ -87,6 +97,22 @@ export function BomContextSheet({ open, onClose, editingId, initialData }: Props
           </div>
 
           <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-amber-900 dark:text-amber-200">
+              Activité <span className="text-red-500">*</span>
+            </label>
+            <select
+              {...register('activiteId')}
+              className="px-3 py-2 rounded border border-amber-200 dark:border-amber-800 bg-white dark:bg-amber-950/30 text-amber-900 dark:text-amber-100 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            >
+              <option value="">-- Sélectionner une activité --</option>
+              {activites.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            {errors.activiteId && <p className="text-xs text-red-500">{errors.activiteId.message}</p>}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-amber-900 dark:text-amber-200">Description</label>
             <textarea
               {...register('description')}
@@ -97,9 +123,44 @@ export function BomContextSheet({ open, onClose, editingId, initialData }: Props
           </div>
 
           {!editingId && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded border border-amber-200 dark:border-amber-800">
-              Un niveau N0 <strong>Stock ingrédients</strong> sera créé automatiquement.
-            </p>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                Niveaux de transformation
+              </label>
+              {levelNames.map((name, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400 w-6 shrink-0">
+                    N{i + 1}
+                  </span>
+                  <input
+                    value={name}
+                    onChange={(e) => {
+                      const next = [...levelNames];
+                      next[i] = e.target.value;
+                      setLevelNames(next);
+                    }}
+                    placeholder={i === 0 ? 'Ingrédients' : `Niveau ${i + 1}`}
+                    className="flex-1 px-3 py-1.5 rounded border border-amber-200 dark:border-amber-800 bg-white dark:bg-amber-950/30 text-amber-900 dark:text-amber-100 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  {levelNames.length > 1 && i === levelNames.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setLevelNames(levelNames.slice(0, -1))}
+                      className="p-1.5 text-red-400 hover:text-red-600 rounded transition-colors"
+                    >
+                      <Minus size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setLevelNames([...levelNames, ''])}
+                className="flex items-center gap-1 self-start px-2 py-1 text-xs text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded transition-colors"
+              >
+                <Plus size={12} /> Ajouter un niveau
+              </button>
+            </div>
           )}
 
           <div className="mt-auto flex gap-3">

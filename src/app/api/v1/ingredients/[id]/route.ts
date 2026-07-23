@@ -60,6 +60,30 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ id
     });
     if (!existing) return apiError('NOT_FOUND', 'Ingrédient introuvable', 404);
 
+    // Guard 1 : lots avec stock disponible (mirroring IngredientDAL.Delete v1)
+    const lotWithStock = await prisma.lot.findFirst({
+      where: { ingredientId: params.id, quantityAvailable: { gt: 0 } },
+    });
+    if (lotWithStock) {
+      return apiError(
+        'CONSTRAINT',
+        'Cet ingrédient a des lots avec du stock disponible. Épuisez ou supprimez les lots avant de supprimer la fiche.',
+        409
+      );
+    }
+
+    // Guard 2 : utilisé comme input dans une fiche BOM
+    const usedInBomLine = await prisma.bomLine.findFirst({
+      where: { ingredientId: params.id },
+    });
+    if (usedInBomLine) {
+      return apiError(
+        'CONSTRAINT',
+        'Cet ingrédient est utilisé comme input dans une ou plusieurs fiches BOM. Retirez-le d\'abord de ces fiches.',
+        409
+      );
+    }
+
     // Vérifier qu'aucune recette active n'utilise cet ingrédient
     const usedInRecipe = await prisma.recipeIngredient.findFirst({
       where: { ingredientId: params.id },

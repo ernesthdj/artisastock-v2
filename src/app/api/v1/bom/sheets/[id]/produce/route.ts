@@ -37,7 +37,14 @@ export async function POST(
       where: { id },
       include: {
         level: {
-          include: { context: { select: { tenantId: true } } },
+          include: {
+            context: {
+              select: {
+                tenantId: true,
+                activite: { include: { _count: { select: { stocks: true } } } },
+              },
+            },
+          },
         },
       },
     })
@@ -45,6 +52,15 @@ export async function POST(
     if (!sheet) return apiError('NOT_FOUND', 'Fiche BOM introuvable', 404)
     if (sheet.level.context.tenantId !== ctx.tenantId)
       return apiError('NOT_FOUND', 'Fiche BOM introuvable', 404)
+
+    // Garde métier : l'activité doit avoir au moins un stock lié pour pouvoir produire.
+    if (sheet.level.context.activite._count.stocks === 0) {
+      return apiError(
+        'ACTIVITE_NO_STOCK',
+        "Impossible de produire : l'activité n'a aucun stock lié.",
+        409
+      )
+    }
 
     const { nBatches, notes } = parsed.data
 

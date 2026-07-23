@@ -6,11 +6,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
 import {
-  Factory, ChevronRight, Lock, Play, CheckCircle2, XCircle,
-  AlertTriangle, Loader2, ArrowLeft, Clock, Package,
+  Factory, ChevronRight, Play, CheckCircle2, XCircle,
+  AlertTriangle, Loader2, ArrowLeft, Clock, Package, Lock,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useActivite } from '@/providers/ActiviteProvider';
 import { formatQty } from '@/lib/bom/units';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ interface BomSheet {
 interface BomContext {
   id: string;
   name: string;
+  activiteId: string;
   levels: BomLevel[];
 }
 
@@ -105,6 +107,7 @@ export default function BomProductionPage() {
   const { locale, contextId } = useParams<{ locale: string; contextId: string }>();
   const queryClient = useQueryClient();
   const { can } = usePermissions();
+  const { activites } = useActivite();
 
   // State
   const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
@@ -153,10 +156,14 @@ export default function BomProductionPage() {
   const selectedSheet = sheets?.find((s) => s.id === selectedSheetId);
   const totalOutputQty = selectedSheet ? Number(selectedSheet.outputQty) * nBatches : 0;
 
+  // Garde métier : une activité doit être liée à au moins un stock pour pouvoir produire.
+  const contextActivite = activites.find((a) => a.id === context?.activiteId);
+  const hasStock = (contextActivite?._count?.stocks ?? 0) > 0;
+
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   function handleSelectLevel(levelId: string, order: number) {
-    if (order === 0) return; // N0 non cliquable
+    if (order === 1) return; // N1 = ingrédients, jamais de production
     setSelectedLevelId(levelId);
     setSelectedSheetId(null);
     setSimResult(null);
@@ -269,6 +276,13 @@ export default function BomProductionPage() {
         </span>
       </div>
 
+      {!hasStock && (
+        <div className="flex items-center gap-2 px-6 py-2.5 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-900/40 text-sm text-red-700 dark:text-red-400 shrink-0">
+          <AlertTriangle size={14} />
+          Cette activité n&apos;a aucun stock lié — la production est indisponible tant qu&apos;un stock n&apos;est pas rattaché (voir « Stocks &amp; liaisons »).
+        </div>
+      )}
+
       {/* ── Kanban 3 colonnes ──────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
 
@@ -286,9 +300,10 @@ export default function BomProductionPage() {
                 {/* Niveau */}
                 <button
                   onClick={() => handleSelectLevel(level.id, level.order)}
-                  disabled={level.order === 0}
+                  disabled={level.order === 1}
+                  title={level.order === 1 ? 'Niveau ingrédients — pas de production ici' : undefined}
                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors text-xs font-semibold ${
-                    level.order === 0
+                    level.order === 1
                       ? 'text-amber-400 dark:text-amber-700 cursor-not-allowed'
                       : selectedLevelId === level.id
                       ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200'
@@ -297,7 +312,7 @@ export default function BomProductionPage() {
                 >
                   <span className="font-bold">N{level.order}</span>
                   <span className="truncate">{level.name}</span>
-                  {level.order === 0 && <Lock size={9} className="shrink-0" />}
+                  {level.order === 1 && <Lock size={9} className="shrink-0" />}
                 </button>
 
                 {/* Fiches du niveau sélectionné */}
@@ -403,7 +418,7 @@ export default function BomProductionPage() {
 
                 <button
                   onClick={handleSimulate}
-                  disabled={simLoading}
+                  disabled={simLoading || !hasStock}
                   className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 dark:disabled:bg-amber-800 text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   {simLoading ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
@@ -499,7 +514,7 @@ export default function BomProductionPage() {
                         <div>
                           <button
                             onClick={() => setShowConfirm(true)}
-                            disabled={!simResult.availability.allSufficient}
+                            disabled={!simResult.availability.allSufficient || !hasStock}
                             className="flex items-center gap-2 px-5 py-2.5 bg-amber-700 hover:bg-amber-800 disabled:bg-amber-200 dark:disabled:bg-amber-900/40 disabled:text-amber-400 dark:disabled:text-amber-700 text-white text-sm font-semibold rounded-lg transition-colors"
                           >
                             <Play size={14} /> Lancer la production

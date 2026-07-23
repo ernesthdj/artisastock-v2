@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Factory, CalendarClock, FileText, ChefHat,
-  Boxes, Grid, ArrowLeftRight, Package, Truck,
+  Boxes, Grid, ArrowLeftRight, Package, Truck, PackagePlus,
   Settings, Users,
   Palette, ShoppingCart, ShoppingBag, Receipt,
 } from 'lucide-react';
@@ -27,6 +27,7 @@ export const STOCK_ITEMS: NavItem[] = [
   { id: 'vuestock', label: 'Vue stock global', href: '/vue-stock', icon: Grid },
   { id: 'mouvements', label: 'Mouvements', href: '/mouvements', icon: ArrowLeftRight },
   { id: 'ingredients', label: 'Fiches & Stock', href: '/ingredients', icon: Package, permission: 'ingredients.read' },
+  { id: 'achats', label: 'Achats', href: '/achats', icon: PackagePlus, permission: 'achats.read' },
   { id: 'fournisseurs', label: 'Fournisseurs', href: '/suppliers', icon: Truck, permission: 'ingredients.read' },
 ];
 

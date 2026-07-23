@@ -51,11 +51,14 @@ async function main() {
     'team.read', 'team.manage',
     'settings.read', 'settings.write',
     'bom.read', 'bom.write', 'bom.produce',
+    'activites.read', 'activites.write',
+    'stocks.read', 'stocks.write',
+    'achats.read', 'achats.write',
   ];
 
   const adminRole = await prisma.role.upsert({
     where: { tenantId_name: { tenantId: tenant.id, name: 'Admin' } },
-    update: {},
+    update: { permissions: ALL_PERMISSIONS },
     create: {
       tenantId: tenant.id,
       name: 'Admin',

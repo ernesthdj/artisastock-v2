@@ -5,12 +5,14 @@ import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { Plus, Factory, ChevronRight, Lock, Trash2, Play } from 'lucide-react';
+import { Plus, Factory, ChevronRight, Trash2, Play, Lock, Package, PackagePlus, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePermissions } from '@/hooks/use-permissions';
 import { BomLevelSheet } from '@/components/bom/BomLevelSheet';
 import { BomSheetEditor } from '@/components/bom/BomSheetEditor';
 import { BomProductionModal } from '@/components/bom/BomProductionModal';
+import { IngredientSheet } from '@/components/ingredients/IngredientSheet';
+import { AchatSheet } from '@/components/achats/AchatSheet';
 
 interface BomLevel {
   id: string;
@@ -50,6 +52,8 @@ export default function BomContextPage() {
   const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null);
   const [productionModalOpen, setProductionModalOpen] = useState(false);
   const [productionSheet, setProductionSheet] = useState<{ id: string; name: string } | null>(null);
+  const [ingredientSheetOpen, setIngredientSheetOpen] = useState(false);
+  const [achatSheetOpen, setAchatSheetOpen] = useState(false);
 
   const { data: context, isLoading } = useQuery<BomContext>({
     queryKey: ['bom-context', contextId],
@@ -87,6 +91,8 @@ export default function BomContextPage() {
   });
 
   const selectedLevel = context?.levels.find((l) => l.id === selectedLevelId);
+  // Règle réelle v1 : seul le niveau d'ordre maximum du contexte est supprimable.
+  const maxOrder = context ? Math.max(...context.levels.map((l) => l.order)) : null;
 
   if (isLoading) {
     return (
@@ -154,19 +160,17 @@ export default function BomContextPage() {
                 onClick={() => setSelectedLevelId(level.id)}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className={`text-xs font-bold shrink-0 ${
-                    level.order === 0 ? 'text-amber-400 dark:text-amber-600' : 'text-amber-600 dark:text-amber-400'
-                  }`}>
+                  <span className="text-xs font-bold shrink-0 text-amber-600 dark:text-amber-400">
                     N{level.order}
                   </span>
                   <span className="text-sm text-amber-900 dark:text-amber-100 truncate">
                     {level.name}
                   </span>
-                  {level.order === 0 && (
+                  {level.order === 1 && (
                     <Lock size={10} className="text-amber-400 shrink-0" />
                   )}
                 </div>
-                {level.order > 0 && can('bom.write') && (
+                {level.order === maxOrder && level.order !== 1 && can('bom.write') && (
                   <button
                     onClick={(e) => { e.stopPropagation(); deleteLevelMutation.mutate(level.id); }}
                     className="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:text-red-600 rounded transition-all"
@@ -187,6 +191,58 @@ export default function BomContextPage() {
                 Sélectionnez un niveau pour voir ses fiches BOM.
               </p>
             </div>
+          ) : selectedLevel?.order === 1 ? (
+            <div className="border-2 border-dashed border-amber-200 dark:border-amber-800 rounded-xl p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <Lock size={14} className="text-amber-400" />
+                <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                  N1 — {selectedLevel.name}
+                </h2>
+              </div>
+              <p className="text-xs text-amber-500 dark:text-amber-500 mb-5">
+                Niveau obligatoire dédié aux ingrédients bruts — aucune fiche BOM ni production ici.
+                Gérez le référentiel et les achats depuis les actions ci-dessous.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={() => setIngredientSheetOpen(true)}
+                  disabled={!can('ingredients.write')}
+                  className="flex items-center gap-3 p-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-white dark:bg-amber-950/10 hover:border-amber-400 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                    <Package size={18} className="text-amber-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">Nouvelle fiche ingrédient</p>
+                    <p className="text-xs text-amber-500">Créer un ingrédient au référentiel</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setAchatSheetOpen(true)}
+                  disabled={!can('achats.write')}
+                  className="flex items-center gap-3 p-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-white dark:bg-amber-950/10 hover:border-amber-400 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                    <PackagePlus size={18} className="text-amber-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">Nouvel achat</p>
+                    <p className="text-xs text-amber-500">Réceptionner un lot d&apos;ingrédient</p>
+                  </div>
+                </button>
+              </div>
+
+              <div className="flex gap-4 mt-5 text-xs">
+                <Link href={`/${locale}/ingredients`} className="flex items-center gap-1 text-amber-600 hover:text-amber-800 dark:hover:text-amber-300">
+                  Voir les fiches ingrédients <ArrowRight size={11} />
+                </Link>
+                <Link href={`/${locale}/achats`} className="flex items-center gap-1 text-amber-600 hover:text-amber-800 dark:hover:text-amber-300">
+                  Voir tous les achats <ArrowRight size={11} />
+                </Link>
+              </div>
+            </div>
           ) : (
             <>
               <div className="flex items-center justify-between mb-3">
@@ -196,10 +252,9 @@ export default function BomContextPage() {
                   </h2>
                   <p className="text-xs text-amber-500 dark:text-amber-500">
                     N{selectedLevel?.order}
-                    {selectedLevel?.order === 0 && ' · Stock ingrédients (lecture seule)'}
                   </p>
                 </div>
-                {can('bom.write') && selectedLevel?.order !== 0 && (
+                {can('bom.write') && (
                   <button
                     onClick={() => { setSelectedSheetId(null); setSheetEditorOpen(true); }}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
@@ -227,7 +282,7 @@ export default function BomContextPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0 ml-3">
-                      {can('bom.produce') && selectedLevel?.order !== 0 && (
+                      {can('bom.produce') && (
                         <button
                           onClick={() => { setProductionSheet({ id: sheet.id, name: sheet.name }); setProductionModalOpen(true); }}
                           className="flex items-center gap-1 px-2 py-1 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded transition-colors opacity-0 group-hover:opacity-100"
@@ -252,7 +307,7 @@ export default function BomContextPage() {
                     <p className="text-sm text-amber-500 dark:text-amber-500 mb-2">
                       Aucune fiche dans ce niveau.
                     </p>
-                    {can('bom.write') && selectedLevel?.order !== 0 && (
+                    {can('bom.write') && (
                       <button
                         onClick={() => { setSelectedSheetId(null); setSheetEditorOpen(true); }}
                         className="flex items-center gap-1 px-3 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors"
@@ -296,6 +351,21 @@ export default function BomContextPage() {
           sheetName={productionSheet.name}
         />
       )}
+
+      <IngredientSheet
+        open={ingredientSheetOpen}
+        onClose={() => setIngredientSheetOpen(false)}
+        ingredientId={null}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['ingredients'] });
+          setIngredientSheetOpen(false);
+        }}
+      />
+
+      <AchatSheet
+        open={achatSheetOpen}
+        onClose={() => setAchatSheetOpen(false)}
+      />
     </div>
   );
 }

@@ -12,13 +12,16 @@ export interface BomContext {
   _count: { levels: number };
 }
 
-// Même queryKey que bom/page.tsx : le cache React Query est partagé, pas de requête dupliquée.
-export function useBomContexts() {
+// Même queryKey que bom/page.tsx (quand activiteId est omis) : le cache React Query est
+// partagé, pas de requête dupliquée.
+export function useBomContexts(activiteId?: string) {
   return useQuery<BomContext[]>({
-    queryKey: ['bom-contexts'],
+    queryKey: activiteId ? ['bom-contexts', activiteId] : ['bom-contexts'],
     queryFn: async () => {
-      const res = await apiClient.get<BomContext[]>('/api/v1/bom/contexts?pageSize=50');
+      const qs = activiteId ? `&activiteId=${activiteId}` : '';
+      const res = await apiClient.get<BomContext[]>(`/api/v1/bom/contexts?pageSize=50${qs}`);
       return res.data;
     },
+    enabled: activiteId === undefined || !!activiteId,
   });
 }

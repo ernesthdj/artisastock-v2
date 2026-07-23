@@ -31,6 +31,14 @@ export const PERMISSIONS = {
   'bom.read': 'Voir les fiches BOM et contextes',
   'bom.write': 'Créer/modifier fiches, niveaux, contextes',
   'bom.produce': 'Lancer une production BOM',
+  // Module Activités & Stocks
+  'activites.read': 'Voir les activités',
+  'activites.write': 'Créer/modifier/désactiver des activités',
+  'stocks.read': 'Voir les stocks',
+  'stocks.write': 'Créer/modifier des stocks et leurs liaisons',
+  // Module Achats (Lots)
+  'achats.read': 'Voir les achats (lots)',
+  'achats.write': 'Créer/modifier/supprimer des achats',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

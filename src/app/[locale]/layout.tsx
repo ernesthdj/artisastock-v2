@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
+import { ActiviteProvider } from '@/providers/ActiviteProvider';
 import { Toaster } from 'sonner';
 
 export function generateStaticParams() {
@@ -29,7 +30,9 @@ export default async function LocaleLayout({
     <NextIntlClientProvider messages={messages}>
       <QueryProvider>
         <AuthProvider>
-          {children}
+          <ActiviteProvider>
+            {children}
+          </ActiviteProvider>
           <Toaster
             position="top-right"
             toastOptions={{

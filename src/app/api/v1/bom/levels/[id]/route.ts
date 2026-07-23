@@ -69,11 +69,6 @@ export async function PATCH(
     if (!level) return apiError('NOT_FOUND', 'Niveau BOM introuvable', 404)
     if (level.context.tenantId !== ctx.tenantId) return apiError('NOT_FOUND', 'Niveau BOM introuvable', 404)
 
-    // N0 non modifiable
-    if (level.order === 0) {
-      return apiError('FORBIDDEN', 'Le niveau N0 (stock ingrédients) ne peut pas être modifié', 403)
-    }
-
     const updated = await db.bomLevel.update({
       where: { id },
       data: parsed.data,
@@ -102,9 +97,15 @@ export async function DELETE(
     if (!level) return apiError('NOT_FOUND', 'Niveau BOM introuvable', 404)
     if (level.context.tenantId !== ctx.tenantId) return apiError('NOT_FOUND', 'Niveau BOM introuvable', 404)
 
-    // Guard N0 : non supprimable
-    if (level.order === 0) {
-      return apiError('FORBIDDEN', 'Le niveau N0 (stock ingrédients) ne peut pas être supprimé', 403)
+    // N1 = niveau ingrédients obligatoire — jamais supprimable, quel que soit son rang
+    // (décision produit explicite, distincte de la règle v1 "dernier niveau uniquement" qui
+    // s'applique aux niveaux N2+).
+    if (level.order === 1) {
+      return apiError(
+        'FORBIDDEN',
+        'Le niveau N1 (Ingrédients) est obligatoire et ne peut pas être supprimé',
+        403
+      )
     }
 
     // Guard productions
@@ -116,10 +117,17 @@ export async function DELETE(
       )
     }
 
-    // Guard dernier niveau : doit rester au moins N0 + 1 niveau
-    const levelCount = await db.bomLevel.count({ where: { contextId: level.contextId } })
-    if (levelCount <= 1) {
-      return apiError('CONFLICT', 'Impossible de supprimer le dernier niveau du contexte', 409)
+    // Règle réelle v1 (BomNiveauDAL.Delete) : uniquement le niveau d'ordre maximum du contexte,
+    // aucune protection spécifique par rang — un niveau intermédiaire ne peut jamais être supprimé.
+    const higherLevelsCount = await db.bomLevel.count({
+      where: { contextId: level.contextId, order: { gt: level.order } },
+    })
+    if (higherLevelsCount > 0) {
+      return apiError(
+        'CONFLICT',
+        'Impossible de supprimer un niveau intermédiaire. Supprimez d\'abord les niveaux supérieurs.',
+        409
+      )
     }
 
     await db.bomLevel.delete({ where: { id } })

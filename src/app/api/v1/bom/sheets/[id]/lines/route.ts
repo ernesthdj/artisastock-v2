@@ -11,6 +11,7 @@ import {
   apiCreated,
   apiError,
 } from '@/lib/permissions'
+import { validateSubSheetHierarchy } from '@/lib/bom/validateLine'
 
 const lineCreateSchema = z
   .object({
@@ -101,22 +102,10 @@ export async function POST(
       return apiError('CONFLICT', 'Cet ingrédient/fiche est déjà présent dans la fiche', 409)
     }
 
-    // Guard hiérarchie : sous-fiche doit être d'un niveau inférieur
+    // Guard hiérarchie : sous-fiche doit être d'un niveau inférieur, et appartenir au tenant
     if (parsed.data.inputType === 'SHEET' && parsed.data.subSheetId) {
-      const subSheet = await db.bomSheet.findUnique({
-        where: { id: parsed.data.subSheetId },
-        include: { level: { select: { order: true } } },
-      })
-
-      if (!subSheet) return apiError('NOT_FOUND', 'Sous-fiche BOM introuvable', 404)
-
-      if (subSheet.level.order >= sheet.level.order) {
-        return apiError(
-          'VALIDATION_ERROR',
-          `Hiérarchie invalide : la sous-fiche (N${subSheet.level.order}) doit être d'un niveau inférieur à la fiche courante (N${sheet.level.order})`,
-          422
-        )
-      }
+      const check = await validateSubSheetHierarchy(db, parsed.data.subSheetId, sheet.level.order, ctx.tenantId)
+      if (!check.ok) return apiError(check.code, check.message, check.status)
     }
 
     const line = await db.bomLine.create({
