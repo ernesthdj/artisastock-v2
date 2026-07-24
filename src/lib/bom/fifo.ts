@@ -37,8 +37,10 @@ export async function checkAvailability(
     where: { id: sheetId },
     include: {
       lines: {
-        include: { ingredient: true },
-        where: { inputType: 'INGREDIENT' },
+        include: {
+          ingredient: true,
+          subSheet: { select: { id: true, name: true, outputUnit: true } },
+        },
       },
     },
   })
@@ -46,22 +48,47 @@ export async function checkAvailability(
   const lines: AvailabilityLine[] = []
 
   for (const line of sheet.lines) {
-    if (!line.ingredient) continue
+    if (line.inputType === 'INGREDIENT') {
+      if (!line.ingredient) continue
 
-    const required = Number(line.quantity) * nBatches
-    const requiredInIngUnit = convert(required, line.unit, line.ingredient.unit)
-    const available = Number(line.ingredient.stock)
-    const sufficient = available >= requiredInIngUnit - TOLERANCE
+      const required = Number(line.quantity) * nBatches
+      const requiredInIngUnit = convert(required, line.unit, line.ingredient.unit)
+      const available = Number(line.ingredient.stock)
+      const sufficient = available >= requiredInIngUnit - TOLERANCE
 
-    lines.push({
-      lineId: line.id,
-      label: line.ingredient.name,
-      required,
-      unit: line.unit,
-      available,
-      availableInUnit: convert(available, line.ingredient.unit, line.unit),
-      sufficient,
-    })
+      lines.push({
+        lineId: line.id,
+        label: line.ingredient.name,
+        required,
+        unit: line.unit,
+        available,
+        availableInUnit: convert(available, line.ingredient.unit, line.unit),
+        sufficient,
+      })
+    } else {
+      // inputType === 'SHEET' — sous-fiche BOM, disponibilité = somme des BomStock.qtyAvailable
+      if (!line.subSheet) continue
+
+      const required = Number(line.quantity) * nBatches
+      const requiredInSubUnit = convert(required, line.unit, line.subSheet.outputUnit)
+
+      const agg = await prisma.bomStock.aggregate({
+        where: { sheetId: line.subSheet.id, qtyAvailable: { gt: 0 } },
+        _sum: { qtyAvailable: true },
+      })
+      const available = Number(agg._sum.qtyAvailable ?? 0)
+      const sufficient = available >= requiredInSubUnit - TOLERANCE
+
+      lines.push({
+        lineId: line.id,
+        label: line.subSheet.name,
+        required,
+        unit: line.unit,
+        available,
+        availableInUnit: convert(available, line.subSheet.outputUnit, line.unit),
+        sufficient,
+      })
+    }
   }
 
   return {
@@ -94,63 +121,111 @@ export async function consumeFIFO(
     where: { id: sheetId },
     include: {
       lines: {
-        include: { ingredient: true },
-        where: { inputType: 'INGREDIENT' },
+        include: {
+          ingredient: true,
+          subSheet: { select: { id: true, name: true, outputUnit: true } },
+        },
       },
     },
   })
 
   for (const line of sheet.lines) {
-    if (!line.ingredient) continue
+    if (line.inputType === 'INGREDIENT') {
+      if (!line.ingredient) continue
 
-    const required = Number(line.quantity) * nBatches
-    let remaining = convert(required, line.unit, line.ingredient.unit)
-    const totalRequired = remaining
+      const required = Number(line.quantity) * nBatches
+      let remaining = convert(required, line.unit, line.ingredient.unit)
+      const totalRequired = remaining
 
-    // Re-lecture FIFO dans la transaction (anti-TOCTOU) : lots les plus anciens d'abord
-    const lots = await tx.lot.findMany({
-      where: { ingredientId: line.ingredient.id, quantityAvailable: { gt: 0 } },
-      orderBy: { purchaseDate: 'asc' },
-    })
-
-    const totalAvailable = lots.reduce((sum, l) => sum + Number(l.quantityAvailable), 0)
-    if (totalAvailable < remaining - TOLERANCE) {
-      throw new Error(
-        `Stock insuffisant pour "${line.ingredient.name}" : ` +
-        `requis ${remaining.toFixed(4)} ${line.ingredient.unit}, ` +
-        `disponible ${totalAvailable.toFixed(4)} ${line.ingredient.unit}`
-      )
-    }
-
-    for (const lot of lots) {
-      if (remaining <= TOLERANCE) break
-
-      const available = Number(lot.quantityAvailable)
-      const consumed = Math.min(available, remaining)
-
-      await tx.lot.update({
-        where: { id: lot.id },
-        data: { quantityAvailable: { decrement: consumed } },
+      // Re-lecture FIFO dans la transaction (anti-TOCTOU) : lots les plus anciens d'abord
+      const lots = await tx.lot.findMany({
+        where: { ingredientId: line.ingredient.id, quantityAvailable: { gt: 0 } },
+        orderBy: { purchaseDate: 'asc' },
       })
 
-      await tx.bomProductionLine.create({
-        data: {
-          productionId,
-          sourceType: 'LOT_INGREDIENT',
-          ingredientId: line.ingredient.id,
-          lotId: lot.id,
-          qtyConsumed: consumed,
-          unitCostAtTime: Number(lot.unitPrice),
-        },
+      const totalAvailable = lots.reduce((sum, l) => sum + Number(l.quantityAvailable), 0)
+      if (totalAvailable < remaining - TOLERANCE) {
+        throw new Error(
+          `Stock insuffisant pour "${line.ingredient.name}" : ` +
+          `requis ${remaining.toFixed(4)} ${line.ingredient.unit}, ` +
+          `disponible ${totalAvailable.toFixed(4)} ${line.ingredient.unit}`
+        )
+      }
+
+      for (const lot of lots) {
+        if (remaining <= TOLERANCE) break
+
+        const available = Number(lot.quantityAvailable)
+        const consumed = Math.min(available, remaining)
+
+        await tx.lot.update({
+          where: { id: lot.id },
+          data: { quantityAvailable: { decrement: consumed } },
+        })
+
+        await tx.bomProductionLine.create({
+          data: {
+            productionId,
+            sourceType: 'LOT_INGREDIENT',
+            ingredientId: line.ingredient.id,
+            lotId: lot.id,
+            qtyConsumed: consumed,
+            unitCostAtTime: Number(lot.unitPrice),
+          },
+        })
+
+        remaining -= consumed
+      }
+
+      // Ingredient.stock suit la somme des lots — décrémenté du même montant que consommé au total
+      await tx.ingredient.update({
+        where: { id: line.ingredient.id },
+        data: { stock: { decrement: totalRequired } },
+      })
+    } else {
+      // inputType === 'SHEET' — consomme le stock produit de la sous-fiche (BomStock), FIFO par producedAt
+      if (!line.subSheet) continue
+
+      const required = Number(line.quantity) * nBatches
+      let remaining = convert(required, line.unit, line.subSheet.outputUnit)
+
+      const stocks = await tx.bomStock.findMany({
+        where: { sheetId: line.subSheet.id, qtyAvailable: { gt: 0 } },
+        orderBy: { producedAt: 'asc' },
       })
 
-      remaining -= consumed
-    }
+      const totalAvailable = stocks.reduce((sum, s) => sum + Number(s.qtyAvailable), 0)
+      if (totalAvailable < remaining - TOLERANCE) {
+        throw new Error(
+          `Stock insuffisant pour "${line.subSheet.name}" : ` +
+          `requis ${remaining.toFixed(4)} ${line.subSheet.outputUnit}, ` +
+          `disponible ${totalAvailable.toFixed(4)} ${line.subSheet.outputUnit}`
+        )
+      }
 
-    // Ingredient.stock suit la somme des lots — décrémenté du même montant que consommé au total
-    await tx.ingredient.update({
-      where: { id: line.ingredient.id },
-      data: { stock: { decrement: totalRequired } },
-    })
+      for (const stock of stocks) {
+        if (remaining <= TOLERANCE) break
+
+        const available = Number(stock.qtyAvailable)
+        const consumed = Math.min(available, remaining)
+
+        await tx.bomStock.update({
+          where: { id: stock.id },
+          data: { qtyAvailable: { decrement: consumed } },
+        })
+
+        await tx.bomProductionLine.create({
+          data: {
+            productionId,
+            sourceType: 'BOM_STOCK',
+            bomStockId: stock.id,
+            qtyConsumed: consumed,
+            unitCostAtTime: Number(stock.unitCost),
+          },
+        })
+
+        remaining -= consumed
+      }
+    }
   }
 }

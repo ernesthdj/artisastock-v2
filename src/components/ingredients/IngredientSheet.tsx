@@ -126,7 +126,26 @@ export function IngredientSheet({ open, onClose, ingredientId, onSuccess }: Prop
           existing.pricePack && existing.unitsPerLot ? Number(existing.pricePack) * existing.unitsPerLot : ''
         );
       } else if (!isEdit) {
-        reset({ physicalType: 'PIECE', unitsPerLot: 1 });
+        // reset() ne remet à zéro QUE les champs listés ici — un objet partiel laisse les
+        // autres champs (nom, label, quantités, prix...) inchangés d'une création à l'autre.
+        reset({
+          name: '',
+          category: '' as FormData['category'],
+          unit: undefined,
+          physicalType: 'PIECE',
+          density: undefined,
+          packagingLabel: '',
+          priceUnit: undefined,
+          pricePack: undefined,
+          packSize: undefined,
+          unitsPerLot: 1,
+          alertThreshold: undefined,
+          dlcDaysReference: undefined,
+          qualityLabel: '',
+          defaultStockId: '',
+          supplierId: '',
+          notes: '',
+        });
         setPriceLot('');
       }
     }
@@ -258,7 +277,10 @@ export function IngredientSheet({ open, onClose, ingredientId, onSuccess }: Prop
 
             {(physicalType === 'LIQUID' || physicalType === 'POWDER') && (
               <Field label="Densité" required error={errors.density?.message}>
-                <input {...register('density')} type="number" step="0.0001" min="0" placeholder="0.79" className="form-input" />
+                <input
+                  {...register('density', { setValueAs: (v) => (v === '' ? undefined : Number(v)) })}
+                  type="number" step="0.0001" min="0" placeholder="0.79" className="form-input"
+                />
               </Field>
             )}
           </div>
@@ -277,6 +299,7 @@ export function IngredientSheet({ open, onClose, ingredientId, onSuccess }: Prop
               <Field label="Qté / conditionnement" error={errors.packSize?.message}>
                 <input
                   {...register('packSize', {
+                    setValueAs: (v) => (v === '' ? undefined : Number(v)),
                     onChange: (e) => syncFromQte(parseFloat(e.target.value) || 0),
                   })}
                   type="number" step="0.01" min="0" placeholder="700" className="form-input"
@@ -304,6 +327,7 @@ export function IngredientSheet({ open, onClose, ingredientId, onSuccess }: Prop
               <Field label="Prix / conditionnement (€)" error={errors.pricePack?.message}>
                 <input
                   {...register('pricePack', {
+                    setValueAs: (v) => (v === '' ? undefined : Number(v)),
                     onChange: (e) => syncFromCond(parseFloat(e.target.value) || 0),
                   })}
                   type="number" step="0.01" min="0" placeholder="15.00" className="form-input"
@@ -340,10 +364,16 @@ export function IngredientSheet({ open, onClose, ingredientId, onSuccess }: Prop
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Seuil d'alerte" error={errors.alertThreshold?.message}>
-              <input {...register('alertThreshold')} type="number" step="0.01" min="0" placeholder="5" className="form-input" />
+              <input
+                {...register('alertThreshold', { setValueAs: (v) => (v === '' ? undefined : Number(v)) })}
+                type="number" step="0.01" min="0" placeholder="5" className="form-input"
+              />
             </Field>
             <Field label="DLC référence (jours)" error={errors.dlcDaysReference?.message}>
-              <input {...register('dlcDaysReference')} type="number" step="1" min="0" placeholder="180" className="form-input" />
+              <input
+                {...register('dlcDaysReference', { setValueAs: (v) => (v === '' ? undefined : Number(v)) })}
+                type="number" step="1" min="0" placeholder="180" className="form-input"
+              />
             </Field>
           </div>
 
