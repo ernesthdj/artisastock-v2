@@ -13,7 +13,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       order: {
         include: {
           customer: true,
-          items: { include: { product: { select: { name: true, vatRate: true } } } },
+          items: { include: { product: { select: { name: true } } } },
         },
       },
       tenant: { select: { name: true, email: true, phone: true, address: true, vatNumber: true } },
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
   const vatBreakdown = buildVatBreakdown(invoice.order.items.map((item) => ({
     totalHT: Number(item.totalHT),
     totalTTC: Number(item.totalTTC),
-    vatRate: item.product.vatRate,
+    vatRatePercent: Number(item.vatRatePercent),
   })));
 
   const pdfBuffer = await generateInvoicePdf({ invoice, vatBreakdown });

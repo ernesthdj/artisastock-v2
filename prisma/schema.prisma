@@ -25,6 +25,7 @@ enum Plan {
 enum OrderStatus {
   NEW
   CONFIRMED
+  STOCK_CONFLICT
   IN_PREPARATION
   READY
   PICKED_UP
@@ -71,6 +72,17 @@ enum PhysicalType {
 enum BomSourceType {
   LOT_INGREDIENT
   BOM_STOCK
+}
+
+enum StockChannel {
+  VITRINE
+  DIRECT
+}
+
+enum ClosureReason {
+  WASTE
+  STAFF
+  OTHER
 }
 
 enum DayOfWeek {
@@ -138,27 +150,30 @@ model Tenant {
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  users         User[]
-  roles         Role[]
-  ingredients   Ingredient[]
-  suppliers     Supplier[]
-  recipes       Recipe[]
-  products      Product[]
-  orders        Order[]
-  customers     Customer[]
-  invoices      Invoice[]
-  pages         Page[]
-  siteConfig    SiteConfig?
-  pickupSlots   PickupSlot[]
-  closedDays    ClosedDay[]
-  notifications NotificationLog[]
-  gdprRequests  GdprRequest[]
-  bomContexts   BomContext[]
-  bomProductions BomProduction[]
-  bomStocks     BomStock[]
-  activites     Activite[]
-  stocks        Stock[]
-  lots          Lot[]
+  users               User[]
+  roles               Role[]
+  ingredients         Ingredient[]
+  suppliers           Supplier[]
+  recipes             Recipe[]
+  products            Product[]
+  orders              Order[]
+  customers           Customer[]
+  invoices            Invoice[]
+  pages               Page[]
+  siteConfig          SiteConfig?
+  pickupSlots         PickupSlot[]
+  closedDays          ClosedDay[]
+  notifications       NotificationLog[]
+  gdprRequests        GdprRequest[]
+  bomContexts         BomContext[]
+  bomProductions      BomProduction[]
+  bomStocks           BomStock[]
+  activites           Activite[]
+  stocks              Stock[]
+  lots                Lot[]
+  tenantVatRates      TenantVatRate[]
+  productChannelStock ProductChannelStock[]
+  stockClosures       StockClosure[]
 
   @@index([slug])
   @@index([isActive])
@@ -181,11 +196,12 @@ model User {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role        Role?            @relation(fields: [roleId], references: [id])
-  roleId      String?
-  sessions    Session[]
-  invitations UserInvitation[] @relation("InvitedBy")
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role          Role?            @relation(fields: [roleId], references: [id])
+  roleId        String?
+  sessions      Session[]
+  invitations   UserInvitation[] @relation("InvitedBy")
+  stockClosures StockClosure[]
 
   @@unique([email, tenantId])
   @@index([tenantId])
@@ -246,7 +262,7 @@ model Role {
   tenantId    String
   name        String
   description String?
-  permissions Json     // Array de strings : ["ingredients.read", ...]
+  permissions Json // Array de strings : ["ingredients.read", ...]
   isSystem    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -396,8 +412,9 @@ model Recipe {
 
   tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   ingredients RecipeIngredient[]
-  product     Product?
+  product     Product?           @relation(fields: [productId], references: [id])
   versions    RecipeVersion[]
+  productId   String?
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -444,37 +461,98 @@ model RecipeVersion {
 // ═══════════════════════════════════════════════
 
 model Product {
-  id              String    @id @default(cuid())
-  tenantId        String
-  recipeId        String?   @unique
-  name            String
-  slug            String
-  description     String?
-  descriptionLong String?
-  category        String?
-  images          Json      @default("[]")
-  priceHT         Decimal   @db.Decimal(10, 2)
-  priceTTC        Decimal   @db.Decimal(10, 2)
-  vatRate         VatRate   @default(FOOD_6)
-  allergens       Json      @default("[]")
-  isVisible       Boolean   @default(true)
-  isClickCollect  Boolean   @default(true)
-  stockType       String    @default("unlimited")
-  stockQuantity   Int?
-  sortOrder       Int       @default(0)
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  id                 String    @id @default(cuid())
+  tenantId           String
+  bomSheetId         String
+  name               String
+  slug               String
+  description        String?
+  descriptionLong    String?
+  category           String?
+  images             Json      @default("[]")
+  priceHT            Decimal   @db.Decimal(10, 2)
+  priceTTC           Decimal   @db.Decimal(10, 2)
+  vatRateId          String
+  marginTargetFactor Decimal?  @db.Decimal(5, 2)
+  isPerishable       Boolean   @default(false)
+  allergens          Json      @default("[]")
+  isVisible          Boolean   @default(true)
+  isClickCollect     Boolean   @default(true)
+  sortOrder          Int       @default(0)
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
 
-  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  recipe     Recipe?     @relation(fields: [recipeId], references: [id])
-  orderItems OrderItem[]
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bomSheet     BomSheet              @relation(fields: [bomSheetId], references: [id], onDelete: Restrict)
+  vatRate      TenantVatRate         @relation(fields: [vatRateId], references: [id], onDelete: Restrict)
+  orderItems   OrderItem[]
+  channelStock ProductChannelStock[]
+  Recipe       Recipe[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
   @@index([tenantId, category])
   @@index([tenantId, isVisible, isActive])
+  @@index([bomSheetId])
+  @@index([vatRateId])
+}
+
+model TenantVatRate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  label       String
+  ratePercent Decimal  @db.Decimal(5, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([tenantId, label])
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+}
+
+model ProductChannelStock {
+  id           String       @id @default(cuid())
+  tenantId     String
+  productId    String
+  bomStockId   String
+  channel      StockChannel
+  qtyAllocated Decimal      @db.Decimal(12, 4)
+  qtyRemaining Decimal      @db.Decimal(12, 4)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product  Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  bomStock BomStock       @relation(fields: [bomStockId], references: [id], onDelete: Restrict)
+  closures StockClosure[]
+
+  @@index([tenantId])
+  @@index([productId, channel])
+  @@index([bomStockId])
+}
+
+model StockClosure {
+  id                    String        @id @default(cuid())
+  tenantId              String
+  productChannelStockId String
+  qty                   Decimal       @db.Decimal(12, 4)
+  reason                ClosureReason
+  note                  String?
+  closedByUserId        String
+  closedAt              DateTime      @default(now())
+
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productChannelStock ProductChannelStock @relation(fields: [productChannelStockId], references: [id], onDelete: Restrict)
+  closedByUser        User                @relation(fields: [closedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([productChannelStockId])
 }
 
 // ═══════════════════════════════════════════════
@@ -482,18 +560,18 @@ model Product {
 // ═══════════════════════════════════════════════
 
 model Customer {
-  id              String    @id @default(cuid())
-  tenantId        String
-  email           String
-  firstName       String
-  lastName        String
-  phone           String?
-  locale          String    @default("fr")
-  gdprConsent     Boolean   @default(false)
-  gdprConsentAt   DateTime?
-  isAnonymized    Boolean   @default(false)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  tenantId      String
+  email         String
+  firstName     String
+  lastName      String
+  phone         String?
+  locale        String    @default("fr")
+  gdprConsent   Boolean   @default(false)
+  gdprConsentAt DateTime?
+  isAnonymized  Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orders Order[]
@@ -539,14 +617,14 @@ model Order {
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String
-  productId String
-  quantity  Int
-  unitPrice Decimal @db.Decimal(10, 2)
-  vatRate   VatRate
-  totalHT   Decimal @db.Decimal(10, 2)
-  totalTTC  Decimal @db.Decimal(10, 2)
+  id             String  @id @default(cuid())
+  orderId        String
+  productId      String
+  quantity       Int
+  unitPrice      Decimal @db.Decimal(10, 2)
+  vatRatePercent Decimal @db.Decimal(5, 2)
+  totalHT        Decimal @db.Decimal(10, 2)
+  totalTTC       Decimal @db.Decimal(10, 2)
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -754,14 +832,14 @@ model AuditLog {
 // ═══════════════════════════════════════════════
 
 model BomContext {
-  id          String     @id @default(cuid())
+  id          String   @id @default(cuid())
   tenantId    String
   activiteId  String
   name        String
   description String?
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   tenant   Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   activite Activite   @relation(fields: [activiteId], references: [id], onDelete: Restrict)
@@ -773,12 +851,12 @@ model BomContext {
 }
 
 model BomLevel {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   contextId   String
-  order       Int       // commence à 1, aucun niveau protégé par son rang — seul le niveau d'ordre max est supprimable
+  order       Int // commence à 1, aucun niveau protégé par son rang — seul le niveau d'ordre max est supprimable
   name        String
   description String?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime @default(now())
 
   context     BomContext      @relation(fields: [contextId], references: [id], onDelete: Cascade)
   sheets      BomSheet[]
@@ -789,23 +867,24 @@ model BomLevel {
 }
 
 model BomSheet {
-  id           String        @id @default(cuid())
-  levelId      String
-  name         String
-  description  String?
-  outputUnit   UnitOfMeasure
-  outputQty    Decimal       @db.Decimal(10, 4)
-  prepTime     Int?
-  targetStock  Decimal?      @db.Decimal(10, 4)
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id          String        @id @default(cuid())
+  levelId     String
+  name        String
+  description String?
+  outputUnit  UnitOfMeasure
+  outputQty   Decimal       @db.Decimal(10, 4)
+  prepTime    Int?
+  targetStock Decimal?      @db.Decimal(10, 4)
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   level        BomLevel        @relation(fields: [levelId], references: [id], onDelete: Cascade)
   lines        BomLine[]
   productions  BomProduction[]
   stocks       BomStock[]
   asInputLines BomLine[]       @relation("SubSheet")
+  products     Product[]
 
   @@unique([levelId, name])
   @@index([levelId])
@@ -853,14 +932,14 @@ model BomProduction {
 }
 
 model BomProductionLine {
-  id              String        @id @default(cuid())
-  productionId    String
-  sourceType      BomSourceType
-  ingredientId    String?
-  lotId           String?       // lot précis consommé (traçabilité FIFO) — une ligne par lot touché
-  bomStockId      String?
-  qtyConsumed     Decimal       @db.Decimal(12, 4)
-  unitCostAtTime  Decimal       @db.Decimal(10, 4)
+  id             String        @id @default(cuid())
+  productionId   String
+  sourceType     BomSourceType
+  ingredientId   String?
+  lotId          String? // lot précis consommé (traçabilité FIFO) — une ligne par lot touché
+  bomStockId     String?
+  qtyConsumed    Decimal       @db.Decimal(12, 4)
+  unitCostAtTime Decimal       @db.Decimal(10, 4)
 
   production BomProduction @relation(fields: [productionId], references: [id], onDelete: Cascade)
 
@@ -878,9 +957,10 @@ model BomStock {
   dlcDate      DateTime?
   createdAt    DateTime  @default(now())
 
-  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sheet      BomSheet      @relation(fields: [sheetId], references: [id], onDelete: Restrict)
-  production BomProduction @relation(fields: [productionId], references: [id], onDelete: Restrict)
+  tenant             Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sheet              BomSheet              @relation(fields: [sheetId], references: [id], onDelete: Restrict)
+  production         BomProduction         @relation(fields: [productionId], references: [id], onDelete: Restrict)
+  channelAllocations ProductChannelStock[]
 
   @@index([tenantId, sheetId, qtyAvailable, producedAt])
 }

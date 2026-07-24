@@ -77,25 +77,38 @@ export async function recalculateRecipesCascade(
   }
 }
 
-// ─── Calcul TVA belge ───────────────────────────────────────────────────────
+// ─── Calcul TVA ─────────────────────────────────────────────────────────────
+// Taux exprimé en pourcentage (ex. 6 pour 6%), lu depuis TenantVatRate.ratePercent
+// (bibliothèque configurable par tenant — voir docs/modules/BOUTIQUE-PRODUITS.md).
+// Le modèle Recipe (legacy, non touché par le module Boutique/Produits) garde son
+// enum VatRate figé — voir recipeVatRateToPercent() ci-dessous pour la conversion.
 
-const VAT_RATES = {
-  FOOD_6: 0.06,
-  STANDARD_21: 0.21,
-};
-
-export function calculatePriceTTC(priceHT: number, vatRate: keyof typeof VAT_RATES): number {
-  const rate = VAT_RATES[vatRate];
-  return Math.round(priceHT * (1 + rate) * 100) / 100;
+export function calculatePriceTTC(priceHT: number, ratePercent: number): number {
+  return Math.round(priceHT * (1 + ratePercent / 100) * 100) / 100;
 }
 
-export function calculatePriceHT(priceTTC: number, vatRate: keyof typeof VAT_RATES): number {
-  const rate = VAT_RATES[vatRate];
-  return Math.round((priceTTC / (1 + rate)) * 100) / 100;
+export function calculatePriceHT(priceTTC: number, ratePercent: number): number {
+  return Math.round((priceTTC / (1 + ratePercent / 100)) * 100) / 100;
 }
 
-export function calculateVatAmount(priceHT: number, vatRate: keyof typeof VAT_RATES): number {
-  return Math.round(priceHT * VAT_RATES[vatRate] * 100) / 100;
+export function calculateVatAmount(priceHT: number, ratePercent: number): number {
+  return Math.round(priceHT * (ratePercent / 100) * 100) / 100;
+}
+
+// ─── Indicateur de marge (confort, UC7) ─────────────────────────────────────
+// Jamais utilisé pour préremplir le prix de vente — uniquement pour afficher
+// à l'admin si son prix saisi manuellement respecte le facteur cible configuré.
+
+export function calculateMarginRatio(priceHT: number, unitCost: number): number | null {
+  if (unitCost <= 0) return null;
+  return Math.round((priceHT / unitCost) * 100) / 100;
+}
+
+// ─── Conversion legacy Recipe.vatRate (enum figé) → pourcentage ────────────
+// Recipe reste sur l'ancien enum VatRate — non migré par le module Boutique/Produits.
+
+export function recipeVatRateToPercent(vatRate: 'FOOD_6' | 'STANDARD_21'): number {
+  return vatRate === 'FOOD_6' ? 6 : 21;
 }
 
 // ─── Génération numéro de commande / facture ────────────────────────────────

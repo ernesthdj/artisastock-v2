@@ -18,11 +18,6 @@ function getStripe(): Stripe {
   return _stripe;
 }
 
-export const VAT_RATES: Record<string, number> = {
-  FOOD_6: 0.06,
-  STANDARD_21: 0.21,
-};
-
 // Convertit un montant TTC en centimes pour Stripe
 export function toCents(amountTTC: number): number {
   return Math.round(amountTTC * 100);
@@ -32,7 +27,6 @@ export interface CheckoutLineItem {
   name: string;
   quantity: number;
   unitPriceTTC: number;
-  vatRate: 'FOOD_6' | 'STANDARD_21';
 }
 
 export async function createCheckoutSession(params: {

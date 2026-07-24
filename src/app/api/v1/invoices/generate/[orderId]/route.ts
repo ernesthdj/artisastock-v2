@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { withPermission, apiCreated, apiError } from '@/lib/permissions';
 import { generateInvoiceNumber } from '@/lib/costs';
 import { buildVatBreakdown } from '@/lib/utils/vat';
-import { VatRate, type Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 export async function POST(request: NextRequest, props: { params: Promise<{ orderId: string }> }) {
   const params = await props.params;
@@ -26,15 +26,15 @@ export async function POST(request: NextRequest, props: { params: Promise<{ orde
     const tenantAddress = order.tenant.address as Record<string, string> | null;
 
     const lines = order.items.map((item) => {
-      const vatRateEnum = item.vatRate as VatRate;
-      const unitPriceHT = Number(item.unitPrice) / (vatRateEnum === 'FOOD_6' ? 1.06 : 1.21);
+      const vatRatePercent = Number(item.vatRatePercent);
+      const unitPriceHT = Number(item.unitPrice) / (1 + vatRatePercent / 100);
       const totalHT = unitPriceHT * item.quantity;
       const totalTTC = Number(item.unitPrice) * item.quantity;
       return {
         description: item.product.name,
         quantity: item.quantity,
         unitPriceHT: Math.round(unitPriceHT * 100) / 100,
-        vatRate: vatRateEnum === 'FOOD_6' ? '6%' : '21%',
+        vatRate: `${vatRatePercent}%`,
         totalHT: Math.round(totalHT * 100) / 100,
         totalTTC: Math.round(totalTTC * 100) / 100,
       };
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ orde
     const vatBreakdown = buildVatBreakdown(
       order.items.map((item) => ({
         totalHT: Number(order.totalHT) * (Number(item.totalHT) / Number(order.totalTTC)),
-        vatRate: item.vatRate as VatRate,
+        vatRatePercent: Number(item.vatRatePercent),
       }))
     );
 

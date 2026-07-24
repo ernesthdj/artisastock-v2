@@ -22,8 +22,8 @@ describe('buildVatBreakdown', () => {
 
   it('should_build_breakdown_for_single_vat_rate', () => {
     const items = [
-      { totalHT: 10, vatRate: 'FOOD_6' as const },
-      { totalHT: 5, vatRate: 'FOOD_6' as const },
+      { totalHT: 10, vatRatePercent: 6 },
+      { totalHT: 5, vatRatePercent: 6 },
     ];
     const result = buildVatBreakdown(items);
     expect(result).toHaveLength(1);
@@ -36,8 +36,8 @@ describe('buildVatBreakdown', () => {
 
   it('should_build_separate_lines_for_each_vat_rate', () => {
     const items = [
-      { totalHT: 100, vatRate: 'FOOD_6' as const },
-      { totalHT: 50, vatRate: 'STANDARD_21' as const },
+      { totalHT: 100, vatRatePercent: 6 },
+      { totalHT: 50, vatRatePercent: 21 },
     ];
     const result = buildVatBreakdown(items);
     expect(result).toHaveLength(2);
@@ -51,9 +51,9 @@ describe('buildVatBreakdown', () => {
 
   it('should_accumulate_base_for_same_vat_rate', () => {
     const items = [
-      { totalHT: 10.5, vatRate: 'STANDARD_21' as const },
-      { totalHT: 9.5, vatRate: 'STANDARD_21' as const },
-      { totalHT: 20, vatRate: 'STANDARD_21' as const },
+      { totalHT: 10.5, vatRatePercent: 21 },
+      { totalHT: 9.5, vatRatePercent: 21 },
+      { totalHT: 20, vatRatePercent: 21 },
     ];
     const result = buildVatBreakdown(items);
     expect(result).toHaveLength(1);
@@ -63,7 +63,7 @@ describe('buildVatBreakdown', () => {
 
   it('should_round_base_and_amount_to_2_decimal_places', () => {
     const items = [
-      { totalHT: 3.333, vatRate: 'FOOD_6' as const },
+      { totalHT: 3.333, vatRatePercent: 6 },
     ];
     const result = buildVatBreakdown(items);
     // base: Math.round(3.333 * 100) / 100 = 3.33
@@ -72,8 +72,8 @@ describe('buildVatBreakdown', () => {
     expect(result[0].amount).toBe(0.2);
   });
 
-  it('should_use_vatRateToPercent_for_rate_label', () => {
-    const items = [{ totalHT: 10, vatRate: 'FOOD_6' as const }];
+  it('should_use_percent_for_rate_label', () => {
+    const items = [{ totalHT: 10, vatRatePercent: 6 }];
     const result = buildVatBreakdown(items);
     expect(result[0].rate).toBe('6%');
   });

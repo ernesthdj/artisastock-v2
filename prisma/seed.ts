@@ -1,5 +1,5 @@
 // prisma/seed.ts — ArtisaStock V2
-import { PrismaClient, Plan, VatRate, UnitOfMeasure, DayOfWeek } from '@prisma/client';
+import { PrismaClient, Plan, UnitOfMeasure, DayOfWeek, BomInputType, StockChannel } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -44,7 +44,7 @@ async function main() {
   const ALL_PERMISSIONS = [
     'ingredients.read', 'ingredients.write', 'ingredients.delete',
     'recipes.read', 'recipes.write', 'recipes.delete',
-    'products.read', 'products.write', 'products.delete',
+    'products.read', 'products.write', 'products.delete', 'products.allocate', 'products.close',
     'orders.read', 'orders.manage',
     'invoices.read', 'invoices.generate',
     'cms.read', 'cms.write', 'cms.publish',
@@ -54,6 +54,7 @@ async function main() {
     'activites.read', 'activites.write',
     'stocks.read', 'stocks.write',
     'achats.read', 'achats.write',
+    'tenant-vat-rates.read', 'tenant-vat-rates.write',
   ];
 
   const adminRole = await prisma.role.upsert({
@@ -249,126 +250,226 @@ async function main() {
 
   const [farine, sucre, beurre, oeufs, levure, sel] = ingredients;
 
-  // ─── Recettes ───────────────────────────────────────────────────────────────
-  const recipePain = await prisma.recipe.upsert({
-    where: { tenantId_name: { tenantId: tenant.id, name: 'Pain de campagne' } },
+  // ─── Bibliothèque de taux TVA (TenantVatRate) ──────────────────────────────
+  // Remplace l'ancien enum VatRate figé (FOOD_6/STANDARD_21) pour les Product.
+  const vatFood = await prisma.tenantVatRate.upsert({
+    where: { tenantId_label: { tenantId: tenant.id, label: 'TVA réduite alimentaire' } },
+    update: {},
+    create: { tenantId: tenant.id, label: 'TVA réduite alimentaire', ratePercent: 6, isActive: true },
+  });
+
+  await prisma.tenantVatRate.upsert({
+    where: { tenantId_label: { tenantId: tenant.id, label: 'TVA standard' } },
+    update: {},
+    create: { tenantId: tenant.id, label: 'TVA standard', ratePercent: 21, isActive: true },
+  });
+
+  // ─── Activité + hiérarchie BOM (remplace les anciennes Recipe) ─────────────
+  // Le module Boutique/Produits publie depuis une BomSheet ayant du BomStock
+  // disponible — voir docs/modules/BOUTIQUE-PRODUITS.md — pas depuis Recipe.
+  const activite = await prisma.activite.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'Boulangerie' } },
     update: {},
     create: {
       tenantId: tenant.id,
+      name: 'Boulangerie',
+      description: 'Activité de production principale',
+    },
+  });
+
+  const bomContext = await prisma.bomContext.upsert({
+    where: { activiteId_name: { activiteId: activite.id, name: 'Production' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      activiteId: activite.id,
+      name: 'Production',
+      levels: {
+        create: [{ order: 1, name: 'Ingrédients' }],
+      },
+    },
+    include: { levels: true },
+  });
+
+  const n2 = await prisma.bomLevel.upsert({
+    where: { contextId_order: { contextId: bomContext.id, order: 2 } },
+    update: {},
+    create: { contextId: bomContext.id, order: 2, name: 'Produits finis' },
+  });
+
+  const sheetPain = await prisma.bomSheet.upsert({
+    where: { levelId_name: { levelId: n2.id, name: 'Pain de campagne' } },
+    update: {},
+    create: {
+      levelId: n2.id,
       name: 'Pain de campagne',
       description: 'Pain rustique à la croûte dorée, mie aérée',
-      category: 'Pains',
-      servings: 1,
-      prepTime: 20,
-      cookTime: 35,
-      marginCoeff: 2.5,
-      vatRate: VatRate.FOOD_6,
-      steps: [
-        { order: 1, instruction: 'Mélanger farine, sel et eau froide. Laisser reposer 20 min (autolyse).' },
-        { order: 2, instruction: 'Ajouter la levure émiettée. Pétrir 10 min jusqu\'à pâte lisse et élastique.' },
-        { order: 3, instruction: 'Première pousse 1h30 à température ambiante (couvert d\'un linge).' },
-        { order: 4, instruction: 'Façonner en boule, déposer en banneton fariné. Pousse finale 45 min.' },
-        { order: 5, instruction: 'Préchauffer four à 240°C avec vapeur. Grigner la pâte.' },
-        { order: 6, instruction: 'Cuire 35 min. La pâte doit sonner creux quand on tape le dessous.' },
-      ],
-      totalCost: 0.62,
-      costPerServing: 0.62,
-      ingredients: {
+      outputUnit: UnitOfMeasure.PIECE,
+      outputQty: 1,
+      prepTime: 55,
+      lines: {
         create: [
-          { ingredientId: farine.id, quantity: 0.500, unit: UnitOfMeasure.KG },
-          { ingredientId: levure.id, quantity: 8, unit: UnitOfMeasure.G },
-          { ingredientId: sel.id, quantity: 0.010, unit: UnitOfMeasure.KG },
+          { inputType: BomInputType.INGREDIENT, ingredientId: farine.id, quantity: 0.5, unit: UnitOfMeasure.KG },
+          { inputType: BomInputType.INGREDIENT, ingredientId: levure.id, quantity: 8, unit: UnitOfMeasure.G },
+          { inputType: BomInputType.INGREDIENT, ingredientId: sel.id, quantity: 0.01, unit: UnitOfMeasure.KG },
         ],
       },
     },
   });
 
-  const recipeCroissant = await prisma.recipe.upsert({
-    where: { tenantId_name: { tenantId: tenant.id, name: 'Croissant pur beurre' } },
+  const sheetCroissant = await prisma.bomSheet.upsert({
+    where: { levelId_name: { levelId: n2.id, name: 'Croissant pur beurre' } },
     update: {},
     create: {
-      tenantId: tenant.id,
+      levelId: n2.id,
       name: 'Croissant pur beurre',
       description: 'Croissant feuilleté au beurre AOC, dorure brillante',
-      category: 'Viennoiseries',
-      servings: 12,
-      prepTime: 90,
-      cookTime: 18,
-      marginCoeff: 3.0,
-      vatRate: VatRate.FOOD_6,
-      steps: [
-        { order: 1, instruction: 'Préparer le détrempe (farine, sucre, sel, levure, lait, beurre de tourage). Laisser pointer 1h.' },
-        { order: 2, instruction: 'Réfrigérer 30 min. Incorporer le beurre de tourage (beurrage).' },
-        { order: 3, instruction: 'Réaliser 3 tours doubles avec repos au frais entre chaque.' },
-        { order: 4, instruction: 'Abaisser à 3mm, découper des triangles de 90g. Façonner les croissants.' },
-        { order: 5, instruction: 'Dorer à l\'oeuf battu. Pousse finale 2h à 26°C.' },
-        { order: 6, instruction: 'Dorer à nouveau. Cuire à 190°C, 16-18 min.' },
-      ],
-      totalCost: 3.89,
-      costPerServing: 0.32,
-      ingredients: {
+      outputUnit: UnitOfMeasure.PIECE,
+      outputQty: 12,
+      prepTime: 108,
+      lines: {
         create: [
-          { ingredientId: farine.id, quantity: 0.500, unit: UnitOfMeasure.KG },
-          { ingredientId: beurre.id, quantity: 0.300, unit: UnitOfMeasure.KG },
-          { ingredientId: sucre.id, quantity: 0.050, unit: UnitOfMeasure.KG },
-          { ingredientId: sel.id, quantity: 0.010, unit: UnitOfMeasure.KG },
-          { ingredientId: levure.id, quantity: 20, unit: UnitOfMeasure.G },
-          { ingredientId: oeufs.id, quantity: 2, unit: UnitOfMeasure.PIECE },
+          { inputType: BomInputType.INGREDIENT, ingredientId: farine.id, quantity: 0.5, unit: UnitOfMeasure.KG },
+          { inputType: BomInputType.INGREDIENT, ingredientId: beurre.id, quantity: 0.3, unit: UnitOfMeasure.KG },
+          { inputType: BomInputType.INGREDIENT, ingredientId: sucre.id, quantity: 0.05, unit: UnitOfMeasure.KG },
+          { inputType: BomInputType.INGREDIENT, ingredientId: sel.id, quantity: 0.01, unit: UnitOfMeasure.KG },
+          { inputType: BomInputType.INGREDIENT, ingredientId: levure.id, quantity: 20, unit: UnitOfMeasure.G },
+          { inputType: BomInputType.INGREDIENT, ingredientId: oeufs.id, quantity: 2, unit: UnitOfMeasure.PIECE },
         ],
       },
     },
   });
 
-  // ─── Produits finis ─────────────────────────────────────────────────────────
-  await prisma.product.upsert({
+  // ─── Production du jour + BomStock (lot disponible) ────────────────────────
+  // Créés directement (pas de replay FIFO réel des Lot ingrédients) — même
+  // logique de raccourci que le stock Ingredient ci-dessus, seed = démo, pas
+  // un test de la logique de production elle-même.
+  const productionPain = await prisma.bomProduction.create({
+    data: {
+      tenantId: tenant.id,
+      levelId: n2.id,
+      sheetId: sheetPain.id,
+      nBatches: 40,
+      outputQty: 40,
+      ingredientsCost: 24.8,
+      unitCost: 0.62,
+      notes: 'Fournée du matin — démo seed',
+    },
+  });
+
+  const bomStockPain = await prisma.bomStock.create({
+    data: {
+      tenantId: tenant.id,
+      sheetId: sheetPain.id,
+      productionId: productionPain.id,
+      qtyAvailable: 40,
+      unitCost: 0.62,
+      producedAt: new Date(),
+      dlcDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    },
+  });
+
+  const productionCroissant = await prisma.bomProduction.create({
+    data: {
+      tenantId: tenant.id,
+      levelId: n2.id,
+      sheetId: sheetCroissant.id,
+      nBatches: 4,
+      outputQty: 50,
+      ingredientsCost: 16,
+      unitCost: 0.32,
+      notes: 'Fournée du matin — démo seed',
+    },
+  });
+
+  const bomStockCroissant = await prisma.bomStock.create({
+    data: {
+      tenantId: tenant.id,
+      sheetId: sheetCroissant.id,
+      productionId: productionCroissant.id,
+      qtyAvailable: 50,
+      unitCost: 0.32,
+      producedAt: new Date(),
+      dlcDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    },
+  });
+
+  // ─── Produits finis (publiés depuis une BomSheet, jamais depuis Recipe) ────
+  const productPain = await prisma.product.upsert({
     where: { tenantId_slug: { tenantId: tenant.id, slug: 'pain-de-campagne' } },
     update: {},
     create: {
       tenantId: tenant.id,
-      recipeId: recipePain.id,
+      bomSheetId: sheetPain.id,
       name: 'Pain de campagne',
       slug: 'pain-de-campagne',
       description: 'Notre pain signature, cuit sur pierre chaque matin',
       descriptionLong: 'Élaboré avec une farine T65 sélectionnée, ce pain de campagne incarne le savoir-faire artisanal de notre boulangerie. Croûte dorée et craquante, mie aérée et légèrement acidulée.',
       category: 'Pains',
       priceHT: 2.83,
-      priceTTC: 3.00,
-      vatRate: VatRate.FOOD_6,
+      priceTTC: 3.0,
+      vatRateId: vatFood.id,
+      marginTargetFactor: 2.5,
+      isPerishable: true,
       allergens: ['gluten'],
       isVisible: true,
       isClickCollect: true,
-      stockType: 'daily',
-      stockQuantity: 30,
       sortOrder: 1,
     },
   });
 
-  await prisma.product.upsert({
+  const productCroissant = await prisma.product.upsert({
     where: { tenantId_slug: { tenantId: tenant.id, slug: 'croissant-pur-beurre' } },
     update: {},
     create: {
       tenantId: tenant.id,
-      recipeId: recipeCroissant.id,
+      bomSheetId: sheetCroissant.id,
       name: 'Croissant pur beurre',
       slug: 'croissant-pur-beurre',
       description: 'Feuilleté au beurre AOC Charentes-Poitou, dorure brillante',
       category: 'Viennoiseries',
       priceHT: 1.42,
-      priceTTC: 1.50,
-      vatRate: VatRate.FOOD_6,
+      priceTTC: 1.5,
+      vatRateId: vatFood.id,
+      marginTargetFactor: 3.0,
+      isPerishable: true,
       allergens: ['gluten', 'lait', 'oeufs'],
       isVisible: true,
       isClickCollect: true,
-      stockType: 'daily',
-      stockQuantity: 50,
       sortOrder: 2,
     },
   });
 
+  // ─── Allocation de stock par canal (UC3 — Vitrine vs Direct/POS) ───────────
+  const channelAllocations = [
+    { productId: productPain.id, bomStockId: bomStockPain.id, channel: StockChannel.VITRINE, qty: 10 },
+    { productId: productPain.id, bomStockId: bomStockPain.id, channel: StockChannel.DIRECT, qty: 30 },
+    { productId: productCroissant.id, bomStockId: bomStockCroissant.id, channel: StockChannel.VITRINE, qty: 15 },
+    { productId: productCroissant.id, bomStockId: bomStockCroissant.id, channel: StockChannel.DIRECT, qty: 35 },
+  ];
+
+  for (const alloc of channelAllocations) {
+    const existing = await prisma.productChannelStock.findFirst({
+      where: { productId: alloc.productId, bomStockId: alloc.bomStockId, channel: alloc.channel },
+    });
+    if (!existing) {
+      await prisma.productChannelStock.create({
+        data: {
+          tenantId: tenant.id,
+          productId: alloc.productId,
+          bomStockId: alloc.bomStockId,
+          channel: alloc.channel,
+          qtyAllocated: alloc.qty,
+          qtyRemaining: alloc.qty,
+        },
+      });
+    }
+  }
+
   // ─── SiteConfig ─────────────────────────────────────────────────────────────
   await prisma.siteConfig.upsert({
     where: { tenantId: tenant.id },
-    update: {},
+    update: { isPublished: true },
     create: {
       tenantId: tenant.id,
       template: 'boulangerie',
@@ -387,7 +488,9 @@ async function main() {
         facebook: 'https://facebook.com/boulangerie-dupont',
         instagram: 'https://instagram.com/boulangerie_dupont',
       },
-      isPublished: false,
+      // Publiée par défaut — sinon StorefrontLayout renvoie systématiquement
+      // notFound() et la vitrine démo n'est jamais testable au navigateur.
+      isPublished: true,
     },
   });
 

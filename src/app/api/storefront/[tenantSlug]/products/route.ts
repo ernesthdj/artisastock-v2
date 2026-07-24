@@ -32,7 +32,11 @@ export async function GET(request: NextRequest, props: { params: Promise<{ tenan
       select: {
         id: true, name: true, slug: true, description: true,
         category: true, images: true, priceHT: true, priceTTC: true,
-        vatRate: true, allergens: true, stockType: true, stockQuantity: true, sortOrder: true,
+        vatRate: { select: { id: true, label: true, ratePercent: true } },
+        allergens: true, sortOrder: true,
+        // NOTE endpoint de transition (étape 1) : la lecture du stock réel par
+        // canal (ProductChannelStock, canal VITRINE) n'est pas encore branchée
+        // ici — voir docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md étape 9.
       },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       skip,

@@ -9,7 +9,11 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
   return withPermission(request, 'products.read', async (ctx) => {
     const product = await prisma.product.findFirst({
       where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null },
-      include: { recipe: { include: { ingredients: { include: { ingredient: true } } } } },
+      include: {
+        bomSheet: { include: { lines: { include: { ingredient: true, subSheet: true } } } },
+        vatRate: { select: { id: true, label: true, ratePercent: true } },
+        channelStock: true,
+      },
     });
 
     if (!product) return apiError('NOT_FOUND', 'Produit introuvable', 404);
@@ -36,17 +40,24 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
     if (!existing) return apiError('NOT_FOUND', 'Produit introuvable', 404);
 
     const updateData: Record<string, unknown> = { ...parsed.data };
-    if (parsed.data.priceHT !== undefined) {
-      updateData['priceTTC'] = calculatePriceTTC(
-        parsed.data.priceHT,
-        parsed.data.vatRate ?? existing.vatRate
-      );
+    if (parsed.data.priceHT !== undefined || parsed.data.vatRateId !== undefined) {
+      const vatRateId = parsed.data.vatRateId ?? existing.vatRateId;
+      const vatRate = await prisma.tenantVatRate.findFirst({
+        where: { id: vatRateId, tenantId: ctx.tenantId },
+      });
+      if (!vatRate) return apiError('NOT_FOUND', 'Taux de TVA introuvable', 404);
+
+      const priceHT = parsed.data.priceHT ?? Number(existing.priceHT);
+      updateData['priceTTC'] = calculatePriceTTC(priceHT, Number(vatRate.ratePercent));
     }
 
     const product = await prisma.product.update({
       where: { id: params.id },
       data: updateData,
-      include: { recipe: { select: { id: true, name: true } } },
+      include: {
+        bomSheet: { select: { id: true, name: true } },
+        vatRate: { select: { id: true, label: true, ratePercent: true } },
+      },
     });
 
     return apiSuccess(product);

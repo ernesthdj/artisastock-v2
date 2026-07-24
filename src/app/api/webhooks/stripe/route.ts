@@ -6,7 +6,6 @@ import { generateOrderNumber } from '@/lib/costs';
 import { sendOrderConfirmationEmail } from '@/lib/email';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { VatRate } from '@prisma/client';
 
 // Stripe webhooks — pas d'auth JWT, vérification par signature
 export async function POST(request: NextRequest) {
@@ -96,10 +95,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     },
   });
 
-  // Récupérer les produits
+  // Récupérer les produits (avec leur taux TVA réel — bibliothèque TenantVatRate,
+  // plus d'enum figé, voir docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md étape 1)
   const productIds = items.map((i) => i.productId);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds }, tenantId: tenant.id },
+    include: { vatRate: { select: { ratePercent: true } } },
   });
 
   // Calculer les totaux
@@ -107,9 +108,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   let totalTVA = 0;
   let totalTTC = 0;
 
+  // NOTE (étape 1, transition) : le décrément réel de ProductChannelStock (canal
+  // VITRINE) et la gestion du conflit de stock (OrderStatus.STOCK_CONFLICT si le
+  // stock a changé entre création de session et confirmation Stripe) ne sont pas
+  // encore implémentés ici — voir docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md
+  // étape 10 (décision déjà tranchée : jamais de remboursement automatique).
   const orderItemsData = items.map((item) => {
     const product = products.find((p) => p.id === item.productId)!;
-    const vatFactor = product.vatRate === VatRate.FOOD_6 ? 1.06 : 1.21;
+    const vatRatePercent = Number(product.vatRate.ratePercent);
+    const vatFactor = 1 + vatRatePercent / 100;
     const unitPriceTTC = Number(product.priceTTC);
     const unitPriceHT = unitPriceTTC / vatFactor;
     const lineTTC = unitPriceTTC * item.quantity;
@@ -124,7 +131,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       productId: item.productId,
       quantity: item.quantity,
       unitPrice: unitPriceTTC,
-      vatRate: product.vatRate,
+      vatRatePercent,
       totalHT: Math.round(lineHT * 100) / 100,
       totalTTC: Math.round(lineTTC * 100) / 100,
     };

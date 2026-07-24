@@ -134,42 +134,42 @@ describe('calculateRecipeCost', () => {
 // ─── calculatePriceTTC ───────────────────────────────────────────────────────
 
 describe('calculatePriceTTC', () => {
-  it('should_apply_6_percent_vat_for_FOOD_6', () => {
-    expect(calculatePriceTTC(10, 'FOOD_6')).toBe(10.6);
+  it('should_apply_6_percent_vat_for_rate_6', () => {
+    expect(calculatePriceTTC(10, 6)).toBe(10.6);
   });
 
-  it('should_apply_21_percent_vat_for_STANDARD_21', () => {
-    expect(calculatePriceTTC(10, 'STANDARD_21')).toBe(12.1);
+  it('should_apply_21_percent_vat_for_rate_21', () => {
+    expect(calculatePriceTTC(10, 21)).toBe(12.1);
   });
 
   it('should_round_to_2_decimal_places', () => {
     // 3.33 × 1.06 = 3.5298 → 3.53
-    expect(calculatePriceTTC(3.33, 'FOOD_6')).toBe(3.53);
+    expect(calculatePriceTTC(3.33, 6)).toBe(3.53);
   });
 
   it('should_return_zero_for_zero_price', () => {
-    expect(calculatePriceTTC(0, 'FOOD_6')).toBe(0);
-    expect(calculatePriceTTC(0, 'STANDARD_21')).toBe(0);
+    expect(calculatePriceTTC(0, 6)).toBe(0);
+    expect(calculatePriceTTC(0, 21)).toBe(0);
   });
 });
 
 // ─── calculatePriceHT ───────────────────────────────────────────────────────
 
 describe('calculatePriceHT', () => {
-  it('should_reverse_6_percent_vat_for_FOOD_6', () => {
+  it('should_reverse_6_percent_vat_for_rate_6', () => {
     // 10.6 / 1.06 = 10
-    expect(calculatePriceHT(10.6, 'FOOD_6')).toBe(10);
+    expect(calculatePriceHT(10.6, 6)).toBe(10);
   });
 
-  it('should_reverse_21_percent_vat_for_STANDARD_21', () => {
+  it('should_reverse_21_percent_vat_for_rate_21', () => {
     // 12.1 / 1.21 = 10
-    expect(calculatePriceHT(12.1, 'STANDARD_21')).toBe(10);
+    expect(calculatePriceHT(12.1, 21)).toBe(10);
   });
 
   it('should_be_inverse_of_calculatePriceTTC', () => {
     const priceHT = 8.5;
-    const priceTTC = calculatePriceTTC(priceHT, 'STANDARD_21');
-    expect(calculatePriceHT(priceTTC, 'STANDARD_21')).toBe(priceHT);
+    const priceTTC = calculatePriceTTC(priceHT, 21);
+    expect(calculatePriceHT(priceTTC, 21)).toBe(priceHT);
   });
 });
 
@@ -177,20 +177,20 @@ describe('calculatePriceHT', () => {
 
 describe('calculateVatAmount', () => {
   it('should_calculate_6_percent_vat_amount', () => {
-    expect(calculateVatAmount(100, 'FOOD_6')).toBe(6);
+    expect(calculateVatAmount(100, 6)).toBe(6);
   });
 
   it('should_calculate_21_percent_vat_amount', () => {
-    expect(calculateVatAmount(100, 'STANDARD_21')).toBe(21);
+    expect(calculateVatAmount(100, 21)).toBe(21);
   });
 
   it('should_round_to_2_decimal_places', () => {
     // 3.33 × 0.21 = 0.6993 → 0.70
-    expect(calculateVatAmount(3.33, 'STANDARD_21')).toBe(0.7);
+    expect(calculateVatAmount(3.33, 21)).toBe(0.7);
   });
 
   it('should_return_zero_for_zero_base', () => {
-    expect(calculateVatAmount(0, 'FOOD_6')).toBe(0);
+    expect(calculateVatAmount(0, 6)).toBe(0);
   });
 });
 

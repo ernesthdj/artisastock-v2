@@ -20,18 +20,22 @@ export interface VatBreakdownLine {
   amount: number;
 }
 
+// Consommé par les factures de commande (Order/OrderItem), qui utilisent depuis
+// docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md étape 1 un snapshot numérique
+// (OrderItem.vatRatePercent) plutôt que l'enum VatRate — resté en place ci-dessus
+// uniquement pour le module Achats/Lot (non touché par le module Boutique/Produits).
 export function buildVatBreakdown(
-  items: Array<{ totalHT: number; vatRate: VatRate }>
+  items: Array<{ totalHT: number; vatRatePercent: number }>
 ): VatBreakdownLine[] {
-  const byRate = new Map<VatRate, number>();
+  const byRate = new Map<number, number>();
 
   for (const item of items) {
-    byRate.set(item.vatRate, (byRate.get(item.vatRate) ?? 0) + item.totalHT);
+    byRate.set(item.vatRatePercent, (byRate.get(item.vatRatePercent) ?? 0) + item.totalHT);
   }
 
-  return Array.from(byRate.entries()).map(([rate, base]) => ({
-    rate: vatRateToPercent(rate),
+  return Array.from(byRate.entries()).map(([ratePercent, base]) => ({
+    rate: `${ratePercent}%`,
     base: Math.round(base * 100) / 100,
-    amount: Math.round(base * VAT_RATES[rate] * 100) / 100,
+    amount: Math.round(base * (ratePercent / 100) * 100) / 100,
   }));
 }

@@ -38,11 +38,14 @@ export default function CatalogPage() {
       if (category) sp.set('category', category);
       const res = await fetch(`/api/storefront/${params.tenantSlug}/products?${sp}`);
       const json = await res.json();
-      return json.data as { data: Product[]; total: number };
+      // apiPaginated renvoie déjà { success, data: [...], meta } — json.data EST
+      // le tableau, pas besoin de le désenvelopper une seconde fois (bug préexistant
+      // corrigé le 2026-07-24, cf. règle #20 du JOURNAL sur apiClient).
+      return json.data as Product[];
     },
   });
 
-  const products = (data as Record<string, unknown>)?.['data'] as Product[] ?? [];
+  const products = data ?? [];
 
   const categories = [...new Set(products.map((p) => p.category))].sort();
 

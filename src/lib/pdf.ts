@@ -7,7 +7,8 @@ interface InvoiceItem {
   unitPrice: unknown;
   totalHT: unknown;
   totalTTC: unknown;
-  product: { name: string; vatRate: string };
+  vatRatePercent: unknown;
+  product: { name: string };
 }
 
 interface InvoiceData {
@@ -59,7 +60,7 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Buffer> {
       <td>${item.product.name}</td>
       <td style="text-align:center">${item.quantity}</td>
       <td style="text-align:right">${Number(item.unitPrice).toFixed(2)} €</td>
-      <td style="text-align:right">${item.product.vatRate === 'FOOD_6' ? '6%' : '21%'}</td>
+      <td style="text-align:right">${Number(item.vatRatePercent)}%</td>
       <td style="text-align:right">${Number(item.totalHT).toFixed(2)} €</td>
       <td style="text-align:right">${Number(item.totalTTC).toFixed(2)} €</td>
     </tr>

@@ -121,6 +121,16 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
+  // ─── Vitrine storefront — hors i18n ───────────────────────────────────────
+  // Vit dans src/app/storefront/[tenantSlug]/ (hors du dossier [locale]) —
+  // volontairement non préfixée par une langue (URL publique courte).
+  // Passer par intlMiddleware ici redirigerait vers /fr/storefront/... qui
+  // n'existe pas → 404 (bug trouvé et corrigé le 2026-07-24, voir
+  // docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md étape 1).
+  if (pathname.startsWith('/storefront/')) {
+    return NextResponse.next();
+  }
+
   // ─── Routes pages — gestion i18n ─────────────────────────────────────────
   return intlMiddleware(request);
 }

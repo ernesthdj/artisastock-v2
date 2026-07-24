@@ -32,15 +32,11 @@ export async function POST(request: NextRequest, props: { params: Promise<{ tena
     return apiError('PRODUCT_UNAVAILABLE', 'Un ou plusieurs produits ne sont plus disponibles', 400);
   }
 
-  // Vérifier les stocks daily
-  for (const item of parsed.data.items) {
-    const product = products.find((p) => p.id === item.productId)!;
-    if (product.stockType === 'limited' && product.stockQuantity !== null) {
-      if (product.stockQuantity < item.quantity) {
-        return apiError('STOCK_INSUFFICIENT', `Stock insuffisant pour "${product.name}"`, 400);
-      }
-    }
-  }
+  // NOTE (étape 1, transition) : la vérification de disponibilité via
+  // ProductChannelStock (canal VITRINE) n'est pas encore branchée ici — voir
+  // docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md étape 10. Le vrai décrément
+  // se fera de toute façon au webhook Stripe, pas ici (cette vérification n'est
+  // qu'un filtre anti-frustration côté client, jamais la source de vérité).
 
   // Vérifier que le jour de retrait n'est pas fermé
   const pickupDate = parseISO(parsed.data.pickupSlot.date);
@@ -65,7 +61,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ tena
       name: product.name,
       quantity: item.quantity,
       unitPriceTTC: Number(product.priceTTC),
-      vatRate: product.vatRate as 'FOOD_6' | 'STANDARD_21',
     };
   });
 

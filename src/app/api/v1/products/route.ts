@@ -18,7 +18,10 @@ export async function GET(request: NextRequest) {
     const [data, total] = await Promise.all([
       prisma.product.findMany({
         where,
-        include: { recipe: { select: { id: true, name: true, totalCost: true, costPerServing: true } } },
+        include: {
+          bomSheet: { select: { id: true, name: true } },
+          vatRate: { select: { id: true, label: true, ratePercent: true } },
+        },
         orderBy: [{ sortOrder: 'asc' }, { [sortBy]: sortOrder }],
         skip,
         take: pageSize,
@@ -43,16 +46,28 @@ export async function POST(request: NextRequest) {
     }
 
     const slug = parsed.data.slug ?? generateSlug(parsed.data.name);
-    const priceTTC = calculatePriceTTC(parsed.data.priceHT, parsed.data.vatRate ?? 'FOOD_6');
+
+    const vatRate = await prisma.tenantVatRate.findFirst({
+      where: { id: parsed.data.vatRateId, tenantId: ctx.tenantId },
+    });
+    if (!vatRate) return apiError('NOT_FOUND', 'Taux de TVA introuvable', 404);
+
+    const priceTTC = calculatePriceTTC(parsed.data.priceHT, Number(vatRate.ratePercent));
 
     const existing = await prisma.product.findUnique({
       where: { tenantId_slug: { tenantId: ctx.tenantId, slug } },
     });
     if (existing) return apiError('CONFLICT', `Un produit avec le slug "${slug}" existe déjà`, 409);
 
+    // NOTE endpoint de transition (étape 1) : la vérification de stock BomStock
+    // disponible (UC1/UC2, docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md étape 3)
+    // n'est pas encore branchée ici.
     const product = await prisma.product.create({
       data: { ...parsed.data, slug, priceTTC, tenantId: ctx.tenantId },
-      include: { recipe: { select: { id: true, name: true } } },
+      include: {
+        bomSheet: { select: { id: true, name: true } },
+        vatRate: { select: { id: true, label: true, ratePercent: true } },
+      },
     });
 
     return apiCreated(product);

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { StorefrontHeader } from '@/components/storefront/StorefrontHeader';
 import { StorefrontFooter } from '@/components/storefront/StorefrontFooter';
+import { QueryProvider } from '@/providers/QueryProvider';
 import { Toaster } from 'sonner';
 
 async function getTenantConfig(tenantSlug: string) {
@@ -48,11 +49,13 @@ export default async function StorefrontLayout(
   if (!data || !data.config?.isPublished) notFound();
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-slate-900">
-      <StorefrontHeader tenant={data.tenant} pages={data.pages ?? []} tenantSlug={params.tenantSlug} />
-      <main className="flex-1">{children}</main>
-      <StorefrontFooter tenant={data.tenant} />
-      <Toaster position="top-center" />
-    </div>
+    <QueryProvider>
+      <div className="min-h-screen flex flex-col bg-white dark:bg-slate-900">
+        <StorefrontHeader tenant={data.tenant} pages={data.pages ?? []} tenantSlug={params.tenantSlug} />
+        <main className="flex-1">{children}</main>
+        <StorefrontFooter tenant={data.tenant} />
+        <Toaster position="top-center" />
+      </div>
+    </QueryProvider>
   );
 }

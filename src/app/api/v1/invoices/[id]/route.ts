@@ -12,7 +12,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       order: {
         include: {
           customer: true,
-          items: { include: { product: { select: { name: true, vatRate: true } } } },
+          items: { include: { product: { select: { name: true } } } },
         },
       },
     },
@@ -20,10 +20,12 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
 
   if (!invoice) return apiError('NOT_FOUND', 'Facture introuvable', 404);
 
+  // vatRatePercent est un snapshot figé sur OrderItem (pas relu depuis Product.vatRate,
+  // qui peut changer après la vente) — voir docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md étape 1.
   const vatBreakdown = buildVatBreakdown(invoice.order.items.map((item) => ({
     totalHT: Number(item.totalHT),
     totalTTC: Number(item.totalTTC),
-    vatRate: item.product.vatRate,
+    vatRatePercent: Number(item.vatRatePercent),
   })));
 
     return apiSuccess({ ...invoice, vatBreakdown });

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { withPermission, apiSuccess, apiError } from '@/lib/permissions';
-import { calculateRecipeCost, calculatePriceTTC } from '@/lib/costs';
+import { calculateRecipeCost, calculatePriceTTC, recipeVatRateToPercent } from '@/lib/costs';
 
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
 
     const marginCoeff = Number(recipe.marginCoeff);
     const suggestedPriceHT = Math.round(costPerServing * marginCoeff * 100) / 100;
-    const suggestedPriceTTC = calculatePriceTTC(suggestedPriceHT, recipe.vatRate);
+    const suggestedPriceTTC = calculatePriceTTC(suggestedPriceHT, recipeVatRateToPercent(recipe.vatRate));
 
     const lines = recipe.ingredients.map((ri) => {
       const qty = Number(ri.quantity);
