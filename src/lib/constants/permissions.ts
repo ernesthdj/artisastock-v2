@@ -11,6 +11,7 @@ export const PERMISSIONS = {
   'products.read': 'Voir les produits',
   'products.write': 'Créer/modifier des produits',
   'products.delete': 'Supprimer des produits',
+  'products.allocate': 'Allouer le stock produit entre canaux (Vitrine/Direct)',
   // Module Commandes
   'orders.read': 'Voir les commandes',
   'orders.manage': 'Changer le statut des commandes',

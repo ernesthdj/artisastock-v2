@@ -10,7 +10,12 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     const product = await prisma.product.findFirst({
       where: { id: params.id, tenantId: ctx.tenantId, deletedAt: null },
       include: {
-        bomSheet: { include: { lines: { include: { ingredient: true, subSheet: true } } } },
+        bomSheet: {
+          include: {
+            lines: { include: { ingredient: true, subSheet: true } },
+            stocks: { where: { qtyAvailable: { gt: 0 } }, orderBy: { producedAt: 'asc' } },
+          },
+        },
         vatRate: { select: { id: true, label: true, ratePercent: true } },
         channelStock: true,
       },
