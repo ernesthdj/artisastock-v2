@@ -49,23 +49,34 @@ export async function GET(request: NextRequest) {
     const { page, pageSize, skip } = parsePagination(sp)
 
     const levelId = sp.get('levelId')
-    if (!levelId) return apiError('VALIDATION_ERROR', 'Paramètre levelId requis', 400)
+    const where: Record<string, unknown> = {}
 
-    // Vérifier que le niveau appartient au tenant avant de lister ses fiches
-    const level = await db.bomLevel.findUnique({
-      where: { id: levelId },
-      include: { context: { select: { tenantId: true } } },
-    })
-    if (!level) return apiError('NOT_FOUND', 'Niveau BOM introuvable', 404)
-    if (level.context.tenantId !== ctx.tenantId) return apiError('NOT_FOUND', 'Niveau BOM introuvable', 404)
+    if (levelId) {
+      // Vérifier que le niveau appartient au tenant avant de lister ses fiches
+      const level = await db.bomLevel.findUnique({
+        where: { id: levelId },
+        include: { context: { select: { tenantId: true } } },
+      })
+      if (!level) return apiError('NOT_FOUND', 'Niveau BOM introuvable', 404)
+      if (level.context.tenantId !== ctx.tenantId) return apiError('NOT_FOUND', 'Niveau BOM introuvable', 404)
+      where['levelId'] = levelId
+    } else {
+      // Sans levelId : toutes les fiches du tenant, tous niveaux confondus — utilisé par le
+      // picker de publication produit (module Boutique), qui n'est pas ancré à un niveau précis.
+      where['level'] = { context: { tenantId: ctx.tenantId } }
+    }
 
-    const where: Record<string, unknown> = { levelId }
     if (sp.get('isActive') !== null) where['isActive'] = sp.get('isActive') === 'true'
+    // Publier un produit (UC2) exige une fiche ayant du stock produit réel — voir products/route.ts
+    if (sp.get('hasStock') === 'true') where['stocks'] = { some: { qtyAvailable: { gt: 0 } } }
 
     const [data, total] = await Promise.all([
       db.bomSheet.findMany({
         where,
-        include: { _count: { select: { lines: true } } },
+        include: {
+          _count: { select: { lines: true } },
+          stocks: { where: { qtyAvailable: { gt: 0 } }, select: { qtyAvailable: true } },
+        },
         orderBy: { name: 'asc' },
         skip,
         take: pageSize,
@@ -73,7 +84,12 @@ export async function GET(request: NextRequest) {
       db.bomSheet.count({ where }),
     ])
 
-    return apiPaginated(data, page, pageSize, total)
+    const withStock = data.map(({ stocks, ...sheet }) => ({
+      ...sheet,
+      availableStock: stocks.reduce((sum, s) => sum + Number(s.qtyAvailable), 0),
+    }))
+
+    return apiPaginated(withStock, page, pageSize, total)
   })
 }
 
