@@ -465,6 +465,21 @@ Ordre justifié par les dépendances réelles : impossible de tester UC1 (publie
 - Aucune suppression de données à la dépublication — uniquement `isVisible = false`.
 - L'historique des commandes passées sur un produit dépublié reste consultable dans l'admin.
 
+**Statut : ✅ Terminée le 2026-07-25 — module Boutique/Produits complet (12/12 étapes).**
+
+**Écart d'exécution constaté** : aucun changement nécessaire côté API — `PATCH /api/v1/products/[id]` et `PATCH .../visibility` géraient déjà tous les champs depuis les étapes 1/4/8 (confirmé par lecture directe, pas supposé). Seul `ProductEditSheet.tsx` manquait réellement. Repris du `ProductPublishSheet.tsx` (mêmes champs, même indicateur de marge live et aperçu TTC) mais sans sélecteur de fiche BOM (fixe après publication) ; la dépublication reste gérée par le toggle Pill déjà en place dans `products/page.tsx` depuis l'étape 4 plutôt que dupliquée dans le formulaire d'édition (un seul geste pour une seule action, cohérent avec la loi de Jakob déjà invoquée à l'étape 8).
+
+**Fichiers réellement créés/modifiés** :
+- `src/components/products/ProductEditSheet.tsx` *(nouveau)*
+- `src/app/[locale]/(dashboard)/products/page.tsx` — icône crayon "Modifier" ajoutée aux actions
+
+**Test navigateur** :
+1. ✅ "Pain de campagne" édité (prix HT 2,83€ → 3,50€, aperçu TTC et marge recalculés en direct dans le formulaire) → catalogue storefront affiche 3,71€ TTC immédiatement après sauvegarde, sans autre action.
+2. ✅ Dépublié (toggle Statut existant) → disparaît du catalogue storefront (l'onglet catégorie "Pains" disparaît aussi, plus aucun produit dedans), reste dans la liste admin avec badge "⏸ Masqué" et toutes ses données intactes.
+3. ✅ Republié → réapparaît immédiatement dans le catalogue, aucune recréation nécessaire.
+
+Module Boutique/Produits — bilan des 12 étapes : schéma + migration (1), bibliothèque TVA (2), vérification stock à la publication (3), page admin + publication (4), indicateur de marge (5), aperçu TTC live (6), allocation Vitrine/Direct (7), toggle périssable (8), vitrine + rupture de stock (9), décrément réel webhook Stripe (10), clôture anti-fraude (11), édition/dépublication (12). 3 bugs préexistants trouvés et corrigés en cours de route (dashboard `customerName`, `BomProductionModal` mauvais endpoint, seed sans Stock/Lot réels) + 2 gaps DoD comblés au passage (filtre `STOCK_CONFLICT` manquant, route storefront `[slug]` cassée mais orpheline).
+
 ---
 
 ## Risques / points d'attention
