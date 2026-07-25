@@ -380,6 +380,22 @@ Ordre justifié par les dépendances réelles : impossible de tester UC1 (publie
 - Le décrément est prouvé par un achat réel de bout en bout en mode test Stripe, pas seulement par une requête API isolée.
 - Le cas de conflit (étape 3 du test) aboutit systématiquement à `status = STOCK_CONFLICT`, repérable en un coup d'œil dans l'admin.
 
+**Statut : ✅ Terminée le 2026-07-25.**
+
+**Écart d'exécution constaté** : `src/lib/products/channel-stock.ts` créé (logique jugée suffisamment distincte du FIFO ingrédients/BOM — consomme une allocation déjà réservée par canal, pas un stock d'ingrédient). Décision d'implémentation pour le cas de conflit : **tout-ou-rien au niveau de la commande entière**, pas seulement par ligne — si un seul produit de la commande est insuffisant, RIEN n'est décrémenté pour aucun produit (le plan ne précisait pas ce détail ; ce choix évite un état incohérent où certaines lignes d'une même commande seraient décrémentées et d'autres non). `ALL_STATUSES` dans `orders/page.tsx` (filtres de la liste admin) n'incluait pas `STOCK_CONFLICT` — trouvé et corrigé au passage (le badge coloré existait déjà depuis l'étape 1 via `ORDER_STATUS_TONE`, mais aucun filtre dédié n'était possible).
+
+**Fichiers réellement modifiés/créés** :
+- `src/lib/products/channel-stock.ts` *(nouveau)* — `consumeChannelStockOrFlagConflict`, tout-ou-rien, re-lecture fraîche dans la transaction
+- `src/app/api/webhooks/stripe/route.ts` — `handleCheckoutCompleted` décrémente désormais dans un `$transaction`, pose `status: CONFIRMED | STOCK_CONFLICT`
+- `src/app/api/storefront/[tenantSlug]/checkout/route.ts` — filtre anti-frustration (pas une réservation) basé sur `ProductChannelStock` VITRINE agrégé
+- `src/app/[locale]/(dashboard)/orders/page.tsx` — `STOCK_CONFLICT` ajouté à `ALL_STATUSES` (filtre manquant)
+
+**Test navigateur/API** : pas de Stripe CLI installé (même contrainte qu'à l'étape 1) — testé en déclenchant un événement `checkout.session.completed` réellement **signé** (`stripe.webhooks.generateTestHeaderString`) contre le vrai endpoint `/api/webhooks/stripe`, exerçant le code réel de bout en bout (vérification de signature comprise), pas un appel de fonction isolé :
+1. ✅ Commande de 3 unités "Croissant pur beurre" → `200 {"received":true}`, `Order` créée avec `status = CONFIRMED`, `ProductChannelStock` du lot le plus ancien décrémenté de 15 → 12 (FIFO correct).
+2. ✅ Commande de 1000 unités (very > stock total ~64) → `Order` créée avec `status = STOCK_CONFLICT`, **tous** les `ProductChannelStock` du produit strictement inchangés (vérifié ligne par ligne) — aucune vente fantôme, aucun décrément partiel.
+3. ✅ Vérifié dans `/fr/orders` : badge rouge "Conflit de stock" visible immédiatement dans la liste, nouveau filtre dédié fonctionnel (1 commande isolée sur clic).
+4. Commandes et clients de test nettoyés après vérification, stock restauré.
+
 ---
 
 ## Étape 11 — Clôture quotidienne des produits périssables
