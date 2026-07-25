@@ -96,6 +96,25 @@ Verrouillage anti-brute-force (`Vendeur.failedPinAttempts`/`lockedUntil`, déjà
 2. Fermer avec un fond différent du fond attendu → écart calculé et affiché, pas juste stocké silencieusement.
 3. Impossible de vendre sans caisse ouverte (vérifié à l'étape 6).
 
+**Statut : ✅ Terminée le 2026-07-26.**
+
+**Écart d'exécution constaté** : aucun sur les routes. Composant `VendeurPicker.tsx` extrait de `PinPad.tsx` (utilisé maintenant par `PinPad` et par la page `/pos/caisse`) — factorisation justifiée dès la deuxième utilisation, pas anticipée. La page `/pos/caisse` ne réutilise pas `PinPad` tel quel : chaque action sensible (ouvrir/fermer) combine PIN **et** montant dans un seul formulaire soumis en une fois à la route dédiée (qui revérifie le PIN elle-même), pour éviter de faire saisir le PIN deux fois de suite (identité puis action).
+
+**Bug trouvé et corrigé (critique, hors du périmètre POS) — `apiClient` avalait les réponses `data: null` légitimes :** `GET /api/v1/pos/caisse?vendeurId=...` (aucune session ouverte) renvoyait bien `{success:true, data:null}` côté serveur, mais l'écran affichait "Caisse ouverte depuis Invalid Date · fond NaN€" au lieu du formulaire d'ouverture. Cause racine dans `src/lib/api-client.ts` : `data: json?.data ?? json` — l'opérateur `??` se déclenche aussi sur `null` (pas seulement `undefined`), donc dès que `data` valait explicitement `null`, le code retombait sur l'enveloppe complète `{success, data, ...}` au lieu de `null`, et le composant traitait cet objet (toujours "truthy") comme une session ouverte valide. Aucun endpoint du projet n'avait jusqu'ici renvoyé un `data: null` légitime en cas de succès — ce bug dormait depuis la création du client. Diagnostiqué en comparant un appel `fetch` direct en console (`{"success":true,"data":null}`) au rendu erroné de l'écran. Corrigé en ne retombant sur l'enveloppe que si `data` est réellement absent de la réponse (`'data' in json`), jamais quand elle vaut `null`.
+**Règle apprise :** ne jamais utiliser `??`/`?.` pour distinguer "propriété absente" de "propriété présente valant `null`" — ces opérateurs traitent les deux cas identiquement. Utiliser `'clé' in obj` ou `Object.hasOwn` quand `null` est une valeur de succès légitime, pas une absence de valeur.
+
+**Tests réels effectués (navigateur + appels API directs pour les cas non atteignables via l'UI seule) :**
+- Ouverture (fond 100€) → `● Caisse ouverte depuis HH:MM · fond 100.00€`.
+- Fermeture avec fond déclaré 95€ (aucune vente encore, donc attendu = 100€) → `Écart : -5.00€` (Pill rouge), affiché après fermeture.
+- Réouverture après fermeture (fond 50€) → nouvelle session `OPEN` créée normalement pour le même vendeur.
+- Double-ouverture (vendeur déjà en session `OPEN`) → `400 ALREADY_OPEN`, testé par appel direct.
+- Fermeture d'une session par un **autre** vendeur que celui à qui elle appartient (PIN de l'autre vendeur correct) → `403 FORBIDDEN`, testé par appel direct.
+- Fermeture d'une session déjà `CLOSED` → `400 ALREADY_CLOSED`.
+- Fermeture d'un id de session inexistant → `404 NOT_FOUND`.
+- PIN erroné sur `/open` → `400 INVALID_PIN` (jamais 401, même règle qu'à l'étape 2).
+- Écart nul confirmé : fond de fermeture égal au fond d'ouverture (aucune vente) → `Écart : 0.00€`.
+- Nettoyage : un vendeur de test "Ernest Hadjiu" (reliquat non intentionnel d'un script de test de la session précédente) et sa session de caisse ont été supprimés après usage, sur confirmation explicite de l'utilisateur.
+
 ---
 
 ## Étape 4 — Pointage horaire

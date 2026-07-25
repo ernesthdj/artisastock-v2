@@ -77,7 +77,12 @@ async function request<T>(
     );
   }
 
-  return { data: json?.data ?? json, meta: json?.meta, status: res.status };
+  // Ne jamais retomber sur l'enveloppe complète quand `data` est explicitement `null` —
+  // `json?.data ?? json` renvoyait l'enveloppe {success,data:null} au lieu de `null`,
+  // cassant tout endpoint dont l'absence de ressource est un `null` légitime (ex. pas de
+  // session de caisse ouverte), bug trouvé en testant POS étape 3.
+  const data = json !== null && typeof json === 'object' && 'data' in json ? json.data : json;
+  return { data, meta: json?.meta, status: res.status };
 }
 
 export const apiClient = {

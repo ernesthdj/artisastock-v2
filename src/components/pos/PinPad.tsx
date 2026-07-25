@@ -1,16 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { Delete, X } from 'lucide-react';
-
-interface VendeurOption {
-  id: string;
-  firstName: string;
-  lastName: string;
-  isActive: boolean;
-}
+import { VendeurPicker } from './VendeurPicker';
 
 interface VerifiedVendeur {
   id: string;
@@ -32,15 +26,6 @@ export function PinPad({ open, onClose, onVerified, title = 'Qui êtes-vous ?' }
   const [selectedVendeurId, setSelectedVendeurId] = useState<string | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  const { data: vendeurs } = useQuery({
-    queryKey: ['pos-vendeurs-picker'],
-    queryFn: async () => {
-      const res = await apiClient.get<VendeurOption[]>('/api/v1/pos/vendeurs?activeOnly=true&pageSize=100');
-      return res.data;
-    },
-    enabled: open,
-  });
 
   const verifyMutation = useMutation({
     mutationFn: (data: { vendeurId: string; pin: string }) =>
@@ -94,22 +79,8 @@ export function PinPad({ open, onClose, onVerified, title = 'Qui êtes-vous ?' }
         </div>
 
         {!selectedVendeurId ? (
-          <div className="p-5 grid grid-cols-2 gap-2 max-h-80 overflow-y-auto">
-            {vendeurs?.length === 0 && (
-              <p className="col-span-2 text-erp-sm text-neutral-400 italic text-center py-6">Aucun vendeur actif.</p>
-            )}
-            {vendeurs?.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => setSelectedVendeurId(v.id)}
-                className="flex flex-col items-center gap-1.5 p-4 rounded-[var(--rx-input)] border border-[var(--line-2)] hover:bg-[var(--surface-hover)] hover:border-choco-600 transition-colors"
-              >
-                <span className="w-10 h-10 rounded-full bg-choco-600 text-[#FCF8EF] flex items-center justify-center text-erp-sm font-semibold">
-                  {v.firstName[0]}{v.lastName[0]}
-                </span>
-                <span className="text-erp-sm font-medium text-choco-600">{v.firstName}</span>
-              </button>
-            ))}
+          <div className="p-5">
+            <VendeurPicker selectedId={selectedVendeurId} onSelect={setSelectedVendeurId} />
           </div>
         ) : (
           <div className="p-5 space-y-4">
