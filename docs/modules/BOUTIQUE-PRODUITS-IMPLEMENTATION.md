@@ -310,6 +310,17 @@ Ordre justifié par les dépendances réelles : impossible de tester UC1 (publie
 **Definition of Done** :
 - Le flag est visuellement identifiable en un coup d'œil dans la liste (cohérent avec `CLAUDE.md` § Gestalt/Similarité).
 
+**Statut : ✅ Terminée le 2026-07-25.**
+
+**Écart d'exécution constaté** : pas de `ProductEditSheet.tsx` (Étape 12, pas encore construit). Plutôt qu'un badge passif dans la colonne Nom, `isPerishable` devient sa propre colonne cliquable ("Périssable") avec un `Pill` toggle — même pattern d'interaction que la colonne Statut (visibilité) déjà en place depuis l'étape 4, réutilisant `PATCH /api/v1/products/[id]` (déjà générique, aucune route dédiée nécessaire). Cohérent avec la loi de Jakob (le même geste que "toggle visibilité" bascule "toggle périssable").
+
+**Fichiers réellement modifiés** : uniquement `src/app/[locale]/(dashboard)/products/page.tsx`.
+
+**Test navigateur** :
+1. ✅ Les 2 produits de démo (Pain de campagne, Croissant pur beurre) sont périssables par défaut dans le seed — badge "⏳ Oui" (fond doré) visible immédiatement sans aucune action.
+2. ✅ Clic sur le badge de "Pain de campagne" → bascule à "Non" (pill neutre), toast "Produit mis à jour", sans rechargement de page.
+3. ✅ Reclic → repasse à "⏳ Oui", confirmant les deux sens du toggle.
+
 ---
 
 ## Étape 9 — Affichage vitrine et rupture de stock
