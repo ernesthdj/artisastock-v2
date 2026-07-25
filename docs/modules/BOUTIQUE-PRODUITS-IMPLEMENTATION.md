@@ -242,12 +242,19 @@ Ordre justifié par les dépendances réelles : impossible de tester UC1 (publie
 
 **Use cases couverts** : UC9 (version simple : un taux par produit, pas encore par canal — voir Risques pour la décision différée sur le taux par canal).
 
+**Statut : ✅ Terminée le 2026-07-25.**
+
+**Écart d'exécution constaté** : le sélecteur de taux TVA existait déjà dans `ProductPublishSheet.tsx` depuis l'étape 4 (nécessaire pour satisfaire `vatRateId` requis par `productCreateSchema`), et `priceTTC` était déjà recalculé serveur-side (POST et PATCH) depuis l'étape 1/3 sans jamais passer par l'enum `VatRate`. Le seul écart réel avec le plan : aucun aperçu **visible avant sauvegarde** n'existait — ajouté maintenant (calcul live `priceHT × (1 + ratePercent/100)`, même contrainte cross-boundary que l'étape 5 : dupliqué localement plutôt qu'importé depuis `lib/costs.ts`).
+
+**Fichiers réellement modifiés** : uniquement `src/components/products/ProductPublishSheet.tsx` (aperçu `priceTTC` live sous les champs prix/TVA). Aucun changement API — `products/route.ts`/`[id]/route.ts` recalculaient déjà `priceTTC` via `vatRateId → ratePercent` depuis les étapes précédentes.
+
 **Test navigateur** :
-1. Sur un produit publié, changer le taux TVA de 6% à 21% → `priceTTC` affiché se met à jour immédiatement (calcul visible avant sauvegarde si possible, sinon après sauvegarde).
-2. Vérifier dans Prisma Studio que `priceTTC` stocké correspond bien au nouveau taux.
+1. ✅ Sélection "TVA intermédiaire (12%)" avec prix HT 1,50€ → aperçu live "Prix TTC : 1.68€" affiché avant toute sauvegarde.
+2. ✅ Changement vers "TVA réduite alimentaire (6%)" → aperçu recalculé instantanément à "1.59€", sans re-render de page.
+3. ✅ `priceTTC` stocké confirmé correct par requête API directe lors des tests des étapes 3/4 (1.50€ × 1.06 = 1.59€ vérifié en base).
 
 **Definition of Done** :
-- Plus aucune référence à l'enum `VatRate` dans le flux de création/édition produit (seul `OrderItem.vatRate` historique reste, cf. Risques).
+- [x] Plus aucune référence à l'enum `VatRate` dans le flux de création/édition produit — confirmé par recherche globale (`grep VatRate`), seules références restantes : `Lot`/`Achats` (domaine différent, achat fournisseur) et `Recipe` (legacy, hors périmètre du module).
 
 ---
 
