@@ -423,6 +423,26 @@ Ordre justifié par les dépendances réelles : impossible de tester UC1 (publie
 - Impossible de clôturer sans motif — vérifié par un test négatif dans le navigateur.
 - La traçabilité (qui/quand/motif) est visible quelque part dans l'admin, pas seulement en base de données.
 
+**Statut : ✅ Terminée le 2026-07-25.**
+
+**Écart d'exécution constaté** : le payload accepté par la route diffère de la description initiale du plan (`{ productChannelStockId, qty, reason, note? }` par ligne) — en pratique, un produit périssable a souvent **plusieurs** `ProductChannelStock` (un par lot de production) pour un même canal, et l'admin raisonne par canal ("il reste 67 en Vitrine"), pas par lot individuel. La route accepte donc `{ channel, lines: [{reason, note?, qty}] }` et **répartit** chaque ligne motif sur les lots sous-jacents du canal (algorithme de fusion à deux pointeurs, une ligne motif peut se scinder sur plusieurs lots, un lot peut recevoir plusieurs motifs) — une `StockClosure` est créée par intersection non nulle (ligne × lot). Le résultat est équivalent au plan (traçabilité par lot conservée) mais l'UI reste ergonomique côté canal, conforme à l'objectif "chaque canal restant reçoit un motif".
+
+**Fichiers réellement créés/modifiés** :
+- `src/lib/constants/permissions.ts` — ajout `products.close` (le seed l'avait déjà)
+- `src/lib/validators/stock-closure.ts` *(nouveau)*
+- `src/app/api/v1/products/[id]/closure/route.ts` *(nouveau)* — répartition ligne×lot décrite ci-dessus, transaction atomique
+- `src/app/api/v1/products/[id]/route.ts` — `GET` inclut désormais `channelStock.closures` (historique, avec `closedByUser`)
+- `src/app/api/v1/products/route.ts` — `GET` (liste) expose `hasRemainingStock` calculé, condition d'affichage du bouton
+- `src/components/products/ProductClosureModal.tsx` *(nouveau)*
+- `src/app/[locale]/(dashboard)/products/page.tsx` — icône dédiée (visible seulement si périssable + stock restant)
+
+**Test navigateur** :
+1. ✅ "Croissant pur beurre" : Vitrine 67 restant(s) réparti sur 5 lots, Direct 145 restant(s) sur 5 lots — formulaire pré-rempli avec une ligne unique par canal (qty verrouillée tant qu'il n'y a qu'une ligne).
+2. ✅ Test négatif (somme incorrecte) : Vitrine scindé en 40+20 (=60 ≠ 67) → bloqué côté client, message exact ("La somme (60) doit être exactement égale au stock restant (67)"), aucun appel réseau.
+3. ✅ Test négatif (motif manquant) : Direct sans motif sélectionné → bloqué, message "Un motif est requis pour chaque ligne", aucun appel réseau.
+4. ✅ Cas scindé réel : Vitrine = 40 (Jeté/Perte) + 27 (Don équipe), Direct = 145 (Jeté/Perte) → validé, historique affiche **11 entrées** exactes reconstituant la répartition sur les lots sous-jacents (ex. le motif "Don équipe" de 27 scindé en 7+15+5 sur 3 lots distincts, chacun tracé "Par Jean Dupont" + date) — confirme l'algorithme de répartition.
+5. ✅ Après clôture : compteurs à 0, "Rien à clôturer aujourd'hui" affiché, l'icône clôture disparaît de la liste admin (`hasRemainingStock` recalculé).
+
 ---
 
 ## Étape 12 — Édition et dépublication
