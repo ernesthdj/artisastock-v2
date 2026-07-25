@@ -341,6 +341,22 @@ Ordre justifié par les dépendances réelles : impossible de tester UC1 (publie
 - Aucune référence restante à `Product.stockType`/`stockQuantity` dans le code du storefront.
 - Le comportement de rupture est vérifié en conditions réelles de navigateur, pas juste en lisant l'API brute.
 
+**Statut : ✅ Terminée le 2026-07-25.**
+
+**Écart d'exécution constaté** : `Product.stockType`/`stockQuantity` n'existent plus du tout dans le schéma Prisma depuis la migration de l'étape 1 — mais 4 fichiers les référençaient encore (`select` Prisma sur des champs inexistants, ou lecture de `undefined` côté client). `src/app/api/storefront/[tenantSlug]/products/[slug]/route.ts` en particulier était **cassé** (aurait crashé à l'exécution, `select: { stockType: true }` sur un champ absent du modèle) — orphelin, jamais appelé par aucune page du storefront, donc jamais détecté. Corrigé par cohérence avec le DoD ("aucune référence restante"), sans construire de nouvelle page pour l'exploiter (YAGNI — rien ne l'utilise aujourd'hui).
+
+**Fichiers réellement modifiés** :
+- `src/app/api/storefront/[tenantSlug]/products/route.ts` — `channelStock` (canal VITRINE) agrégé en `vitrineQtyRemaining`
+- `src/app/api/storefront/[tenantSlug]/products/[slug]/route.ts` — même traitement (route cassée, remise en état)
+- `src/store/cart.ts` — `CartItem.stockType`/`stockQuantity` → `vitrineQtyRemaining: number` (plus de fallback `?? 99`, un produit sans allocation est réellement à 0)
+- `src/app/storefront/[tenantSlug]/catalog/page.tsx` — `isOos` recalculé sur `vitrineQtyRemaining`, overlay renommé "Rupture de stock" (au lieu de "Indisponible", pour matcher le vocabulaire du plan)
+- `src/app/storefront/[tenantSlug]/cart/page.tsx` — plafond d'incrémentation sur `vitrineQtyRemaining`
+
+**Test navigateur** :
+1. ✅ Catalogue affiche "Pain de campagne" et "Croissant pur beurre" tous deux achetables (allocations Vitrine de démo > 0), ajout au panier fonctionnel (toast "ajouté au panier").
+2. ✅ `ProductChannelStock.qtyRemaining` (canal VITRINE) mis à 0 pour "Pain de campagne" (les 4 lignes, via script direct) → rafraîchissement du catalogue → carte grisée, badge "Rupture de stock" visible, bouton "Ajouter" désactivé (clic sans effet, aucun toast, compteur panier inchangé) — pendant que "Croissant pur beurre" reste normalement achetable à côté.
+3. ✅ Allocation restaurée (`qtyRemaining` = `qtyAllocated`), catalogue revenu à l'état normal.
+
 ---
 
 ## Étape 10 — Décrément réel de l'allocation Vitrine à la commande
