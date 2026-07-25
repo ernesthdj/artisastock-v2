@@ -150,6 +150,20 @@ async function main() {
     },
   });
 
+  // ─── Stock physique (emplacement) ──────────────────────────────────────────
+  // Requis par Lot.stockId — sans ça aucun lot ne peut être créé, et
+  // checkAvailability (BOM) se retrouve à comparer un Ingredient.stock fictif
+  // à zéro lot réel au moment de consumeFIFO (voir docs/JOURNAL.md).
+  const stockPrincipal = await prisma.stock.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'Réserve principale' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'Réserve principale',
+      description: 'Entrepôt de stockage des matières premières',
+    },
+  });
+
   // ─── Ingrédients ───────────────────────────────────────────────────────────
   const ingredients = await Promise.all([
     prisma.ingredient.upsert({
@@ -165,6 +179,7 @@ async function main() {
         packSize: 25,
         stock: 150,
         alertThreshold: 25,
+        defaultStockId: stockPrincipal.id,
         supplierId: supplierGrandsMoulins.id,
         supplierRef: 'FAR-T65-25KG',
         notes: 'Sac 25kg, stocker au sec',
@@ -183,6 +198,7 @@ async function main() {
         packSize: 25,
         stock: 80,
         alertThreshold: 10,
+        defaultStockId: stockPrincipal.id,
         supplierId: supplierSucres.id,
         supplierRef: 'SUC-BLANC-25',
       },
@@ -200,6 +216,7 @@ async function main() {
         packSize: 25,
         stock: 15,
         alertThreshold: 5,
+        defaultStockId: stockPrincipal.id,
         notes: 'Réfrigération 0-4°C',
       },
     }),
@@ -216,6 +233,7 @@ async function main() {
         packSize: 120,
         stock: 360,
         alertThreshold: 60,
+        defaultStockId: stockPrincipal.id,
         notes: 'Boites de 120, réfrigération',
       },
     }),
@@ -230,6 +248,7 @@ async function main() {
         priceUnit: 0.018,
         stock: 2000,
         alertThreshold: 500,
+        defaultStockId: stockPrincipal.id,
         notes: 'Conservation réfrigérée, max 3 semaines',
       },
     }),
@@ -244,11 +263,44 @@ async function main() {
         priceUnit: 0.30,
         stock: 10,
         alertThreshold: 2,
+        defaultStockId: stockPrincipal.id,
       },
     }),
   ]);
 
   const [farine, sucre, beurre, oeufs, levure, sel] = ingredients;
+
+  // ─── Lots (achats) — stock de départ réellement traçable ──────────────────
+  // Un Lot par ingrédient pour justifier son Ingredient.stock (voir Stock
+  // physique ci-dessus) : sans lot réel, consumeFIFO (production BOM) trouve
+  // zéro stock disponible même quand Ingredient.stock affiche un chiffre.
+  const purchaseDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+  await Promise.all(
+    [
+      { ingredient: farine, supplierId: supplierGrandsMoulins.id },
+      { ingredient: sucre, supplierId: supplierSucres.id },
+      { ingredient: beurre, supplierId: undefined },
+      { ingredient: oeufs, supplierId: undefined },
+      { ingredient: levure, supplierId: undefined },
+      { ingredient: sel, supplierId: undefined },
+    ].map(({ ingredient, supplierId }) => {
+      const qty = Number(ingredient.stock);
+      const totalPriceHT = Math.round(qty * Number(ingredient.priceUnit) * 100) / 100;
+      return prisma.lot.create({
+        data: {
+          tenantId: tenant.id,
+          ingredientId: ingredient.id,
+          stockId: stockPrincipal.id,
+          supplierId,
+          purchaseDate,
+          quantityInitial: qty,
+          quantityAvailable: qty,
+          unitPrice: totalPriceHT,
+          totalPriceHT,
+        },
+      });
+    })
+  );
 
   // ─── Bibliothèque de taux TVA (TenantVatRate) ──────────────────────────────
   // Remplace l'ancien enum VatRate figé (FOOD_6/STANDARD_21) pour les Product.
@@ -275,6 +327,12 @@ async function main() {
       name: 'Boulangerie',
       description: 'Activité de production principale',
     },
+  });
+
+  await prisma.activiteStock.upsert({
+    where: { activiteId_stockId: { activiteId: activite.id, stockId: stockPrincipal.id } },
+    update: {},
+    create: { activiteId: activite.id, stockId: stockPrincipal.id },
   });
 
   const bomContext = await prisma.bomContext.upsert({
