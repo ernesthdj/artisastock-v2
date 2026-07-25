@@ -28,6 +28,12 @@ interface CostResult {
   outputUnit: string;
 }
 
+interface SimulateResult {
+  nBatches: number;
+  cost: CostResult;
+  availability: AvailabilityResult;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -40,23 +46,19 @@ export function BomProductionModal({ open, onClose, sheetId, sheetName }: Props)
   const [nBatches, setNBatches] = useState(1);
   const [notes, setNotes] = useState('');
 
-  const { data: availability, isLoading: loadingAvail } = useQuery<AvailabilityResult>({
-    queryKey: ['bom-availability', sheetId, nBatches],
+  // /cost renvoie uniquement le coût — /simulate combine coût + disponibilité (checkAvailability)
+  // dans un seul appel, seule route qui retourne réellement { lines, allSufficient }.
+  const { data: simulation, isLoading: loadingAvail } = useQuery<SimulateResult>({
+    queryKey: ['bom-simulate-prod', sheetId, nBatches],
     queryFn: async () => {
-      const res = await apiClient.get<AvailabilityResult>(`/api/v1/bom/sheets/${sheetId}/cost?nBatches=${nBatches}`)
+      const res = await apiClient.get<SimulateResult>(`/api/v1/bom/sheets/${sheetId}/simulate?nBatches=${nBatches}`)
       return res.data
     },
     enabled: open && nBatches > 0,
   });
 
-  const { data: cost } = useQuery<CostResult>({
-    queryKey: ['bom-cost-prod', sheetId, nBatches],
-    queryFn: async () => {
-      const res = await apiClient.get<CostResult>(`/api/v1/bom/sheets/${sheetId}/cost?nBatches=${nBatches}`)
-      return res.data
-    },
-    enabled: open && nBatches > 0,
-  });
+  const availability = simulation?.availability;
+  const cost = simulation?.cost;
 
   const produceMutation = useMutation({
     mutationFn: () =>
