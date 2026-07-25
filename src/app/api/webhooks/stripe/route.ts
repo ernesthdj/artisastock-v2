@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { constructWebhookEvent } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { generateOrderNumber } from '@/lib/costs';
+import { consumeChannelStockOrFlagConflict } from '@/lib/products/channel-stock';
 import { sendOrderConfirmationEmail } from '@/lib/email';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -108,11 +109,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   let totalTVA = 0;
   let totalTTC = 0;
 
-  // NOTE (étape 1, transition) : le décrément réel de ProductChannelStock (canal
-  // VITRINE) et la gestion du conflit de stock (OrderStatus.STOCK_CONFLICT si le
-  // stock a changé entre création de session et confirmation Stripe) ne sont pas
-  // encore implémentés ici — voir docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md
-  // étape 10 (décision déjà tranchée : jamais de remboursement automatique).
   const orderItemsData = items.map((item) => {
     const product = products.find((p) => p.id === item.productId)!;
     const vatRatePercent = Number(product.vatRate.ratePercent);
@@ -142,26 +138,41 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const pickupStart = new Date(`${metadata.pickupDate}T${metadata.pickupStartTime}:00`);
   const pickupEnd = new Date(`${metadata.pickupDate}T${metadata.pickupEndTime}:00`);
 
-  const order = await prisma.order.create({
-    data: {
-      tenantId: tenant.id,
-      orderNumber,
-      customerId: customer.id,
-      totalHT: Math.round(totalHT * 100) / 100,
-      totalTVA: Math.round(totalTVA * 100) / 100,
-      totalTTC: Math.round(totalTTC * 100) / 100,
-      pickupDate,
-      pickupSlotStart: pickupStart,
-      pickupSlotEnd: pickupEnd,
-      stripeSessionId: session.id,
-      stripePaymentId: typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id,
-      paidAt: new Date(),
-      cgvAcceptedAt: new Date(),
-      notes: metadata.notes || null,
-      statusHistory: [{ status: 'NEW', timestamp: new Date().toISOString() }],
-      items: { create: orderItemsData },
-    },
-    include: { items: { include: { product: true } } },
+  // Point d'écriture réel du décrément Vitrine (UC6) — dans la même transaction que la
+  // commande : tout-ou-rien, jamais de vente fantôme ni de décrément partiel silencieux.
+  // Le paiement Stripe est déjà capturé à ce stade ; en cas de conflit de stock (le stock a
+  // pu changer entre la création de session et la confirmation), la commande est quand même
+  // créée mais avec status STOCK_CONFLICT, pour résolution manuelle admin — jamais de
+  // remboursement automatique (décision du 2026-07-24).
+  const order = await prisma.$transaction(async (tx) => {
+    const allSufficient = await consumeChannelStockOrFlagConflict(
+      items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+      tx
+    );
+    const status = allSufficient ? 'CONFIRMED' : 'STOCK_CONFLICT';
+
+    return tx.order.create({
+      data: {
+        tenantId: tenant.id,
+        orderNumber,
+        customerId: customer.id,
+        status,
+        totalHT: Math.round(totalHT * 100) / 100,
+        totalTVA: Math.round(totalTVA * 100) / 100,
+        totalTTC: Math.round(totalTTC * 100) / 100,
+        pickupDate,
+        pickupSlotStart: pickupStart,
+        pickupSlotEnd: pickupEnd,
+        stripeSessionId: session.id,
+        stripePaymentId: typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id,
+        paidAt: new Date(),
+        cgvAcceptedAt: new Date(),
+        notes: metadata.notes || null,
+        statusHistory: [{ status, timestamp: new Date().toISOString() }],
+        items: { create: orderItemsData },
+      },
+      include: { items: { include: { product: true } } },
+    });
   });
 
   // Email de confirmation au client

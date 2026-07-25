@@ -32,11 +32,26 @@ export async function POST(request: NextRequest, props: { params: Promise<{ tena
     return apiError('PRODUCT_UNAVAILABLE', 'Un ou plusieurs produits ne sont plus disponibles', 400);
   }
 
-  // NOTE (étape 1, transition) : la vérification de disponibilité via
-  // ProductChannelStock (canal VITRINE) n'est pas encore branchée ici — voir
-  // docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md étape 10. Le vrai décrément
-  // se fera de toute façon au webhook Stripe, pas ici (cette vérification n'est
-  // qu'un filtre anti-frustration côté client, jamais la source de vérité).
+  // Filtre anti-frustration uniquement — pas une réservation, pas la source de vérité.
+  // Le vrai décrément (et la gestion du conflit) se fait au webhook Stripe, dans une
+  // transaction qui relit l'état frais (voir handleCheckoutCompleted / channel-stock.ts).
+  const channelStockByProduct = await prisma.productChannelStock.groupBy({
+    by: ['productId'],
+    where: { productId: { in: productIds }, channel: 'VITRINE' },
+    _sum: { qtyRemaining: true },
+  });
+  const remainingByProduct = new Map(channelStockByProduct.map((c) => [c.productId, Number(c._sum.qtyRemaining ?? 0)]));
+  for (const item of parsed.data.items) {
+    const remaining = remainingByProduct.get(item.productId) ?? 0;
+    if (item.quantity > remaining) {
+      const product = products.find((p) => p.id === item.productId);
+      return apiError(
+        'PRODUCT_UNAVAILABLE',
+        `Stock insuffisant pour "${product?.name ?? item.productId}" (${remaining} disponible(s))`,
+        400
+      );
+    }
+  }
 
   // Vérifier que le jour de retrait n'est pas fermé
   const pickupDate = parseISO(parsed.data.pickupSlot.date);

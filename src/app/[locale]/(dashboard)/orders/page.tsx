@@ -22,7 +22,7 @@ interface Order {
   customer: { firstName: string; lastName: string; email: string };
 }
 
-const ALL_STATUSES: OrderStatus[] = ['NEW', 'CONFIRMED', 'IN_PREPARATION', 'READY', 'PICKED_UP', 'CANCELLED'];
+const ALL_STATUSES: OrderStatus[] = ['NEW', 'CONFIRMED', 'STOCK_CONFLICT', 'IN_PREPARATION', 'READY', 'PICKED_UP', 'CANCELLED'];
 
 export default function OrdersPage() {
   const [search, setSearch] = useState('');
