@@ -165,8 +165,9 @@ Les restaurateurs qui ne sont pas experts du métier logiciel sont mal servis pa
 - [ ] Stratégie de sortie du mode offline tolérant (POS) vers un mode strict si besoin
 
 ### Prochaines étapes
-1. **Brainstorm module Boutique/Produits** (choisi par mentalyas comme premier chantier) — use cases + workflow utilisateur complet pour publier un produit fini vers la vitrine.
-2. Implémentation du module Boutique/Produits guidée par ce workflow, testée dans le navigateur au fur et à mesure.
-3. Brainstorm module POS (use cases + workflow utilisateur), en gardant les points d'API vers le futur RH.
-4. Brainstorm module RH quand pertinent.
-5. Activer l'équipe d'agents IT (PO/Architect/UI-UX) si la complexité d'un module donné le justifie — décision au cas par cas, pas systématique vu le solo + la méthodologie de brainstorm par module déjà en place.
+1. ~~**Brainstorm module Boutique/Produits**~~ ✅ fait le 2026-07-24 (`docs/modules/BOUTIQUE-PRODUITS.md`).
+2. ~~Implémentation du module Boutique/Produits guidée par ce workflow~~ ✅ terminée le 2026-07-25 (12/12 étapes, `docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md`).
+3. ~~Brainstorm module POS~~ ✅ fait le 2026-07-25 (`docs/modules/POS.md`) — réutilise `ProductChannelStock`/canal `DIRECT` déjà construit, offline et lien RH explicitement différés.
+4. **Implémentation du module POS** guidée par ce workflow (prochaine étape).
+5. Brainstorm module RH quand pertinent.
+6. Activer l'équipe d'agents IT (PO/Architect/UI-UX) si la complexité d'un module donné le justifie — décision au cas par cas, pas systématique vu le solo + la méthodologie de brainstorm par module déjà en place.
