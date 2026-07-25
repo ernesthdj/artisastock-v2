@@ -39,6 +39,9 @@ export const PERMISSIONS = {
   // Module Achats (Lots)
   'achats.read': 'Voir les achats (lots)',
   'achats.write': 'Créer/modifier/supprimer des achats',
+  // Module Boutique/Produits — taux de TVA par Activité
+  'tenant-vat-rates.read': 'Voir les taux de TVA',
+  'tenant-vat-rates.write': 'Créer/modifier les taux de TVA',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

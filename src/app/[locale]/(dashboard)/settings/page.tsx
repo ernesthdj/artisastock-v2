@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { Card, Btn, Pill, Empty } from '@/components/ui';
+import { Plus, Edit } from 'lucide-react';
+import { Card, Btn, Pill, Empty, DataTable, type DataTableColumn } from '@/components/ui';
 import { usePermissions } from '@/hooks/use-permissions';
+import { TenantVatRateSheet } from '@/components/settings/TenantVatRateSheet';
 
 interface Tenant {
   id: string;
@@ -13,10 +15,19 @@ interface Tenant {
   isActive: boolean;
 }
 
+interface TenantVatRate {
+  id: string;
+  label: string;
+  ratePercent: string;
+  isActive: boolean;
+}
+
 export default function ParamtresPage() {
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const [confirming, setConfirming] = useState(false);
+  const [vatSheetOpen, setVatSheetOpen] = useState(false);
+  const [editingVatId, setEditingVatId] = useState<string | null>(null);
 
   const { data: tenant, isLoading } = useQuery<Tenant>({
     queryKey: ['tenant-current'],
@@ -44,6 +55,59 @@ export default function ParamtresPage() {
     },
     onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Erreur'),
   });
+
+  const { data: vatRates, isLoading: vatLoading } = useQuery({
+    queryKey: ['tenant-vat-rates'],
+    queryFn: async () => {
+      const res = await apiClient.get<TenantVatRate[]>('/api/v1/tenant-vat-rates?pageSize=100');
+      return res.data;
+    },
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      apiClient.patch(`/api/v1/tenant-vat-rates/${id}`, { isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant-vat-rates'] });
+      toast.success('Taux de TVA mis à jour');
+    },
+    onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Erreur'),
+  });
+
+  const vatColumns: DataTableColumn<TenantVatRate>[] = [
+    { key: 'label', label: 'Libellé', render: (v) => <span className="font-medium text-choco-600">{v.label}</span> },
+    { key: 'rate', label: 'Taux', align: 'right', render: (v) => `${Number(v.ratePercent)} %` },
+    {
+      key: 'status',
+      label: 'Statut',
+      render: (v) => <Pill tone={v.isActive ? 'ok' : 'warn'}>{v.isActive ? '● Actif' : '⏸ Inactif'}</Pill>,
+    },
+    {
+      key: 'actions',
+      label: '',
+      width: 90,
+      render: (v) =>
+        can('tenant-vat-rates.write') ? (
+          <div className="flex items-center justify-end gap-1">
+            <button
+              onClick={() => { setEditingVatId(v.id); setVatSheetOpen(true); }}
+              className="p-1 rounded hover:bg-[var(--surface-hover)] text-neutral-400 hover:text-choco-600"
+              title="Modifier"
+            >
+              <Edit size={14} />
+            </button>
+            <Btn
+              size="sm"
+              variant="ghost"
+              onClick={() => toggleActiveMutation.mutate({ id: v.id, isActive: !v.isActive })}
+              disabled={toggleActiveMutation.isPending}
+            >
+              {v.isActive ? 'Désactiver' : 'Réactiver'}
+            </Btn>
+          </div>
+        ) : null,
+    },
+  ];
 
   return (
     <div className="p-6 max-w-3xl mx-auto flex flex-col gap-5">
@@ -86,11 +150,45 @@ export default function ParamtresPage() {
         ) : null}
       </Card>
 
+      <Card
+        title="Taux de TVA"
+        subtitle="Bibliothèque de taux utilisée à la publication des produits"
+        actions={
+          can('tenant-vat-rates.write') ? (
+            <Btn variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => { setEditingVatId(null); setVatSheetOpen(true); }}>
+              Ajouter
+            </Btn>
+          ) : undefined
+        }
+      >
+        {vatLoading ? (
+          <div className="h-16 bg-[var(--line-1)] rounded animate-pulse" />
+        ) : (
+          <DataTable
+            columns={vatColumns}
+            rows={vatRates ?? []}
+            emptyState={
+              <div className="text-center py-6">
+                <p className="text-erp-sm text-neutral-500">Aucun taux de TVA configuré.</p>
+              </div>
+            }
+          />
+        )}
+      </Card>
+
       <Empty
         icon="⚙️"
         title="Paramètres"
         desc="Configurez votre espace artisan, facturation, notifications et intégrations. Le reste du module Paramètres est en cours de construction."
         action={<Pill tone="gold">🚧 En développement</Pill>}
+      />
+
+      <TenantVatRateSheet
+        open={vatSheetOpen}
+        onClose={() => { setVatSheetOpen(false); setEditingVatId(null); }}
+        editingId={editingVatId}
+        initialData={vatRates?.find((v) => v.id === editingVatId) ?? null}
+        onSuccess={() => { setVatSheetOpen(false); setEditingVatId(null); }}
       />
     </div>
   );
