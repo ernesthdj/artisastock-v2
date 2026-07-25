@@ -52,6 +52,27 @@ export async function POST(request: NextRequest) {
     });
     if (!vatRate) return apiError('NOT_FOUND', 'Taux de TVA introuvable', 404);
 
+    const bomSheet = await prisma.bomSheet.findUnique({
+      where: { id: parsed.data.bomSheetId },
+      include: { level: { select: { context: { select: { tenantId: true } } } } },
+    });
+    if (!bomSheet || bomSheet.level.context.tenantId !== ctx.tenantId) {
+      return apiError('NOT_FOUND', 'Fiche BOM introuvable', 404);
+    }
+
+    // UC2 : publier un produit exige un stock de départ réel — jamais depuis une fiche à sec.
+    const stockAgg = await prisma.bomStock.aggregate({
+      where: { tenantId: ctx.tenantId, sheetId: parsed.data.bomSheetId, qtyAvailable: { gt: 0 } },
+      _sum: { qtyAvailable: true },
+    });
+    if (Number(stockAgg._sum.qtyAvailable ?? 0) <= 0) {
+      return apiError(
+        'NO_STOCK',
+        `Aucun stock disponible pour la fiche "${bomSheet.name}" — produisez-la d'abord via le module BOM avant de publier ce produit`,
+        400
+      );
+    }
+
     const priceTTC = calculatePriceTTC(parsed.data.priceHT, Number(vatRate.ratePercent));
 
     const existing = await prisma.product.findUnique({
@@ -59,9 +80,6 @@ export async function POST(request: NextRequest) {
     });
     if (existing) return apiError('CONFLICT', `Un produit avec le slug "${slug}" existe déjà`, 409);
 
-    // NOTE endpoint de transition (étape 1) : la vérification de stock BomStock
-    // disponible (UC1/UC2, docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md étape 3)
-    // n'est pas encore branchée ici.
     const product = await prisma.product.create({
       data: { ...parsed.data, slug, priceTTC, tenantId: ctx.tenantId },
       include: {
