@@ -16,16 +16,22 @@ const schema = z.object({
   category: z.string().max(100).optional(),
   priceHT: z.coerce.number().positive('Doit être > 0'),
   vatRateId: z.string().min(1, 'Requis'),
+  marginTargetFactor: z.coerce.number().positive().optional(),
   isPerishable: z.boolean(),
 });
 
 type FormData = z.infer<typeof schema>;
+
+// Cible par défaut quand l'admin ne configure pas la sienne — repère indicatif
+// (~30% food cost, standard restauration), jamais persisté comme valeur du champ.
+const DEFAULT_MARGIN_TARGET = 3;
 
 interface BomSheetOption {
   id: string;
   name: string;
   outputUnit: string;
   availableStock: number;
+  avgUnitCost: number | null;
 }
 
 interface VatRateOption {
@@ -65,7 +71,7 @@ export function ProductPublishSheet({ open, onClose, onSuccess }: Props) {
   const activeVatRates = vatRates?.filter((v) => v.isActive) ?? [];
 
   const {
-    register, handleSubmit, reset, setError,
+    register, handleSubmit, reset, setError, watch,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -77,6 +83,15 @@ export function ProductPublishSheet({ open, onClose, onSuccess }: Props) {
       reset({ bomSheetId: '', name: '', description: '', category: '', vatRateId: '', isPerishable: false });
     }
   }, [open, reset]);
+
+  const selectedBomSheetId = watch('bomSheetId');
+  const priceHT = watch('priceHT');
+  const marginTargetFactor = watch('marginTargetFactor');
+  const selectedSheet = sheets?.find((s) => s.id === selectedBomSheetId);
+  const marginRatio =
+    selectedSheet?.avgUnitCost && priceHT > 0 ? priceHT / selectedSheet.avgUnitCost : null;
+  const marginTarget = marginTargetFactor || DEFAULT_MARGIN_TARGET;
+  const marginComfortable = marginRatio !== null && marginRatio >= marginTarget;
 
   const publishMutation = useMutation({
     mutationFn: (data: FormData) =>
@@ -176,6 +191,26 @@ export function ProductPublishSheet({ open, onClose, onSuccess }: Props) {
               </select>
               {errors.vatRateId && <p className="mt-1 text-erp-xs text-framboise-400">{errors.vatRateId.message}</p>}
             </div>
+          </div>
+
+          {marginRatio !== null && (
+            <div
+              className={`rounded-[var(--rx-input)] border px-3 py-2 text-erp-xs ${
+                marginComfortable
+                  ? 'bg-[#E4F6E7] border-[#BFE3C5] text-[#1B5E20]'
+                  : 'bg-[#FCEED7] border-[#E6CB99] text-[#7A4E1C]'
+              }`}
+            >
+              Marge : x{marginRatio.toFixed(2)} le coût de revient ({selectedSheet?.avgUnitCost?.toFixed(2)}€)
+              {marginComfortable ? ' — confortable' : ` — faible (cible x${marginTarget})`}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-erp-sm font-medium text-choco-600 mb-1">
+              Facteur de marge cible <span className="text-neutral-400 font-normal">(optionnel, défaut x{DEFAULT_MARGIN_TARGET})</span>
+            </label>
+            <input {...register('marginTargetFactor')} type="number" step="0.1" min="0" placeholder={String(DEFAULT_MARGIN_TARGET)} className="form-input" />
           </div>
 
           <label className="flex items-center gap-2 text-erp-sm text-choco-600">

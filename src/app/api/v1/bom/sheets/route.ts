@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
         where,
         include: {
           _count: { select: { lines: true } },
-          stocks: { where: { qtyAvailable: { gt: 0 } }, select: { qtyAvailable: true } },
+          stocks: { where: { qtyAvailable: { gt: 0 } }, select: { qtyAvailable: true, unitCost: true } },
         },
         orderBy: { name: 'asc' },
         skip,
@@ -84,10 +84,17 @@ export async function GET(request: NextRequest) {
       db.bomSheet.count({ where }),
     ])
 
-    const withStock = data.map(({ stocks, ...sheet }) => ({
-      ...sheet,
-      availableStock: stocks.reduce((sum, s) => sum + Number(s.qtyAvailable), 0),
-    }))
+    // avgUnitCost : moyenne pondérée par quantité des lots de production disponibles —
+    // sert d'indicateur de marge (UC7) à la publication, pas un coût de lot arbitraire.
+    const withStock = data.map(({ stocks, ...sheet }) => {
+      const availableStock = stocks.reduce((sum, s) => sum + Number(s.qtyAvailable), 0)
+      const weightedCost = stocks.reduce((sum, s) => sum + Number(s.qtyAvailable) * Number(s.unitCost), 0)
+      return {
+        ...sheet,
+        availableStock,
+        avgUnitCost: availableStock > 0 ? Math.round((weightedCost / availableStock) * 10000) / 10000 : null,
+      }
+    })
 
     return apiPaginated(withStock, page, pageSize, total)
   })
