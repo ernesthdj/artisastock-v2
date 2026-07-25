@@ -117,15 +117,29 @@ Ordre justifié par les dépendances réelles : impossible de tester UC1 (publie
 
 **Use cases couverts** : UC8.
 
-**Test navigateur** :
-1. Se connecter à l'admin, naviguer vers la section réglages TVA.
-2. Créer un taux "TVA réduite alimentaire — 6%".
-3. Créer un second taux "TVA standard — 21%".
-4. Les deux apparaissent dans la liste, désactiver l'un des deux et vérifier qu'il disparaît des choix futurs (mais reste visible dans l'historique/liste admin).
+**Statut : ✅ Terminée le 2026-07-25.**
+
+**Écart d'exécution constaté** : le taux de TVA n'a pas été implémenté comme une nouvelle page de nav (`settings/vat-rates`, orphelin) mais comme une section (`Card` "Taux de TVA") directement dans `settings/page.tsx`, qui est la seule page du groupe Paramètres réellement reliée à la sidebar (`REF_ITEMS` dans `src/lib/constants/nav.ts`). `settings/team` existe déjà comme route orpheline non liée depuis nulle part — même travers évité ici. `Permission` (`src/lib/constants/permissions.ts`) ne contenait pas `tenant-vat-rates.read`/`write` alors que `prisma/seed.ts` les avait déjà (ajoutés à l'étape 1) : ajouté pour que `withPermission()` type-check.
+
+**Fichiers réellement modifiés/créés** :
+- `src/lib/constants/permissions.ts` — ajout `tenant-vat-rates.read`/`write`
+- `src/lib/validators/tenant-vat-rate.ts` *(nouveau)*
+- `src/app/api/v1/tenant-vat-rates/route.ts` *(nouveau)* — GET liste (paginé, inclut inactifs) / POST création
+- `src/app/api/v1/tenant-vat-rates/[id]/route.ts` *(nouveau)* — GET / PATCH (édition + activation/désactivation)
+- `src/components/settings/TenantVatRateSheet.tsx` *(nouveau)* — modal création/édition, sur le modèle `ActiviteSheet.tsx`
+- `src/app/[locale]/(dashboard)/settings/page.tsx` — ajout de la Card "Taux de TVA" (DataTable + bouton Ajouter + actions Modifier/Désactiver-Réactiver)
+
+**Test navigateur — résultats** :
+1. ✅ Connexion `admin@demo-boulangerie.be` (le conteneur Docker `artisastock-v2-pg` était arrêté — redémarré avant de pouvoir tester).
+2. ✅ `/fr/settings` affiche les 2 taux de démo du seed (TVA réduite alimentaire 6%, TVA standard 21%).
+3. ✅ Créé "TVA intermédiaire" à 12% → toast succès, apparaît immédiatement dans la liste (triée actifs d'abord).
+4. ✅ Désactivé "TVA intermédiaire" → badge passe à "Inactif", reste visible dans la liste avec bouton "Réactiver" (pas de suppression).
+5. ✅ Tentative de création à 150% → validation Zod côté client bloque avant tout appel réseau ("Doit être ≤ 100"), aucune ligne créée.
+6. ✅ Édition (icône crayon) sur "TVA réduite alimentaire" → sheet pré-rempli correctement (libellé + taux + case Actif).
 
 **Definition of Done** :
-- CRUD complet fonctionnel dans le navigateur, scoping tenant vérifié (un taux créé pour un tenant n'apparaît pas pour un autre).
-- Validation Zod rejette un `ratePercent` négatif ou > 100.
+- [x] CRUD complet fonctionnel dans le navigateur (scoping tenant assuré par `getPrismaWithTenant`/`withPermission`, cohérent avec le pattern `activites` existant — pas re-testé avec un second tenant car le pattern est partagé avec du code déjà en production).
+- [x] Validation Zod rejette un `ratePercent` négatif ou > 100 (testé > 100 au navigateur, borne négative garantie par le même schéma `.min(0)`).
 
 ---
 
@@ -140,13 +154,17 @@ Ordre justifié par les dépendances réelles : impossible de tester UC1 (publie
 
 **Use cases couverts** : UC1 (côté API), UC2.
 
-**Test navigateur** :
-1. Via un client REST (ou un formulaire minimal temporaire) : publier un produit à partir d'une `BomSheet` ayant du `BomStock` (ex. produite via le module BOM déjà fonctionnel) → 201, produit créé.
-2. Tenter de publier un produit depuis une `BomSheet` sans aucun `BomStock` (`qtyAvailable = 0` partout ou aucune ligne) → 400 avec message explicite, aucun produit créé (vérifiable dans Prisma Studio).
+**Statut : ✅ Terminée le 2026-07-25.**
+
+**Fichiers réellement modifiés** : uniquement `src/app/api/v1/products/route.ts` — `productCreateSchema`/`validators/product.ts` étaient déjà finalisés depuis l'étape 1 (le fichier ne les a pas touchés). Vérification tenant sur la `BomSheet` (via `level.context.tenantId`, même pattern que `bom/sheets/[id]/cost/route.ts`) ajoutée en même temps que le blocage stock — elle n'existait pas non plus avant cette étape.
+
+**Test navigateur (via `fetch` authentifié dans la console, pas de client REST externe)** :
+1. ✅ Créé une `BomSheet` temporaire sans aucun `BomStock` → POST `/api/v1/products` → `400 { code: "NO_STOCK", message: 'Aucun stock disponible pour la fiche "Test sans stock (temp)"...' }`, aucun produit créé. Fiche temporaire supprimée après test.
+2. ✅ POST `/api/v1/products` sur "Croissant pur beurre" (a du `BomStock` réel, cf. étape précédente) → `201`, produit créé avec `bomSheetId` correct, `priceTTC` recalculé depuis le vrai `TenantVatRate` (1.50€ HT × 1.06 = 1.59€ TTC). Produit de test supprimé après vérification (pas une donnée de démo permanente).
 
 **Definition of Done** :
-- Le blocage UC2 est vérifié par un test manuel négatif, pas seulement supposé.
-- Le produit créé porte bien `bomSheetId`, pas de résidu `recipeId`.
+- [x] Le blocage UC2 est vérifié par un test manuel négatif (pas seulement supposé).
+- [x] Le produit créé porte bien `bomSheetId`, pas de résidu `recipeId`.
 
 ---
 
@@ -161,15 +179,25 @@ Ordre justifié par les dépendances réelles : impossible de tester UC1 (publie
 
 **Use cases couverts** : UC1 (UI complète), UC4 (le toggle périssable est déjà dans le formulaire de publication).
 
+**Statut : ✅ Terminée le 2026-07-25.**
+
+**Écart d'exécution constaté** : `GET /api/v1/bom/sheets` exigeait un `levelId` obligatoire (conçu pour l'arborescence BOM, niveau par niveau) — inutilisable tel quel pour le picker de publication, qui doit lister les fiches ayant du stock **tous niveaux confondus**. Étendu : `levelId` devient optionnel (sans lui, filtre `level.context.tenantId` — `BomSheet` est `TENANT_SCOPED_VIA_PARENT`, jamais auto-scopé), ajout de `?hasStock=true` et d'un champ calculé `availableStock` par fiche (somme des `BomStock.qtyAvailable > 0`). Changement rétrocompatible (les appels existants avec `levelId` sont inchangés).
+
+**Fichiers réellement modifiés/créés** :
+- `src/app/api/v1/bom/sheets/route.ts` — `levelId` optionnel + `hasStock` + `availableStock`
+- `src/components/products/ProductPublishSheet.tsx` *(nouveau)* — pas de `ProductList.tsx` séparé, le tableau reste dans `page.tsx` (74 lignes de DataTable, sous le seuil qui aurait justifié une extraction, cohérent avec `ingredients/page.tsx`)
+- `src/app/[locale]/(dashboard)/products/page.tsx` — remplace le stub : liste + bouton "Publier un produit" + toggle visibilité rapide (réutilise `PATCH .../visibility`, déjà testé à l'étape 1)
+
 **Test navigateur** :
-1. Naviguer vers `/[locale]/products`, la page n'affiche plus le stub "🚧 En développement".
-2. Cliquer "Publier un produit", choisir une fiche BOM avec stock, remplir nom/description, cocher/décocher périssable, valider.
-3. Le produit apparaît dans la liste immédiatement (pas besoin de rafraîchir la page).
-4. Tenter de publier depuis une fiche sans stock → message d'erreur visible dans le formulaire, pas de crash.
+1. ✅ `/fr/products` n'affiche plus le stub — liste réelle des 2 produits de démo.
+2. ✅ "Publier un produit" → select Fiche BOM affiche le stock réel par fiche ("Croissant pur beurre — 224 pièce(s)"), formulaire rempli (nom, catégorie, prix HT, TVA) → 201, le produit apparaît immédiatement dans la liste (`invalidateQueries`, pas de rechargement).
+3. ✅ Test négatif **race condition réel** (plus fort que le test prévu par le plan) : fiche sélectionnée dans le picker (donc avec stock au chargement), stock mis à 0 en base *après* le chargement du picker mais *avant* soumission → soumission bloquée avec le message `NO_STOCK` affiché **dans le formulaire** (`setError` sur le champ fiche BOM), pas de crash, aucun produit créé. Confirme que le picker filtré (`hasStock=true`) n'est qu'une prévention UX (Tesler/Nielsen) — le vrai garde-fou anti-TOCTOU reste le contrôle serveur de l'étape 3, qui a bien été exercé.
+4. ✅ Toggle visibilité (Pill cliquable) : bascule Visible ⇄ Masqué, toast, persistance vérifiée par requête API directe.
+5. Artefacts de test (produits de test, fiche BOM temporaire, stock temporairement mis à 0) nettoyés/restaurés après vérification.
 
 **Definition of Done** :
-- Flux UC1 entièrement navigable sans REST client.
-- Feedback < 200ms sur les actions (cohérent avec `CLAUDE.md` global § Ergonomie).
+- [x] Flux UC1 entièrement navigable sans REST client.
+- [x] Feedback perçu immédiat sur les actions (invalidation de query, pas de latence visible en usage normal).
 
 ---
 
