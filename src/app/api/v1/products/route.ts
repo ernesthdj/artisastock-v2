@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
         include: {
           bomSheet: { select: { id: true, name: true } },
           vatRate: { select: { id: true, label: true, ratePercent: true } },
+          channelStock: { where: { qtyRemaining: { gt: 0 } }, select: { id: true } },
         },
         orderBy: [{ sortOrder: 'asc' }, { [sortBy]: sortOrder }],
         skip,
@@ -29,7 +30,14 @@ export async function GET(request: NextRequest) {
       prisma.product.count({ where }),
     ]);
 
-    return apiPaginated(data, page, pageSize, total);
+    // hasRemainingStock (UC10) : conditionne l'affichage du bouton "Clôturer la journée"
+    // dans l'admin — un produit sans stock restant n'a rien à clôturer.
+    const withClosureFlag = data.map(({ channelStock, ...p }) => ({
+      ...p,
+      hasRemainingStock: channelStock.length > 0,
+    }));
+
+    return apiPaginated(withClosureFlag, page, pageSize, total);
   });
 }
 

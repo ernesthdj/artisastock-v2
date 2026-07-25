@@ -17,7 +17,14 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
           },
         },
         vatRate: { select: { id: true, label: true, ratePercent: true } },
-        channelStock: true,
+        channelStock: {
+          include: {
+            closures: {
+              include: { closedByUser: { select: { firstName: true, lastName: true } } },
+              orderBy: { closedAt: 'desc' },
+            },
+          },
+        },
       },
     });
 

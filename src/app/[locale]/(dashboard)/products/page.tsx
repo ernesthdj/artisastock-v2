@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { Plus, Boxes } from 'lucide-react';
+import { Plus, Boxes, Lock } from 'lucide-react';
 import { formatPrice } from '@/lib/utils/format';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ProductPublishSheet } from '@/components/products/ProductPublishSheet';
 import { ProductAllocationPanel } from '@/components/products/ProductAllocationPanel';
+import { ProductClosureModal } from '@/components/products/ProductClosureModal';
 import { Crumb, Btn, Pill, DataTable, type DataTableColumn } from '@/components/ui';
 
 interface Product {
@@ -19,6 +20,7 @@ interface Product {
   priceTTC: string;
   isPerishable: boolean;
   isVisible: boolean;
+  hasRemainingStock: boolean;
   bomSheet: { id: string; name: string };
   vatRate: { id: string; label: string; ratePercent: string };
 }
@@ -28,6 +30,7 @@ export default function ProduitsPage() {
   const { can } = usePermissions();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [allocProduct, setAllocProduct] = useState<{ id: string; name: string } | null>(null);
+  const [closureProduct, setClosureProduct] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['products'],
@@ -101,16 +104,28 @@ export default function ProduitsPage() {
       key: 'actions',
       label: '',
       width: 40,
-      render: (p) =>
-        can('products.allocate') ? (
-          <button
-            onClick={() => setAllocProduct({ id: p.id, name: p.name })}
-            className="p-1 rounded hover:bg-[var(--surface-hover)] text-neutral-400 hover:text-choco-600"
-            title="Allouer le stock"
-          >
-            <Boxes size={15} />
-          </button>
-        ) : null,
+      render: (p) => (
+        <div className="flex items-center gap-1">
+          {can('products.allocate') && (
+            <button
+              onClick={() => setAllocProduct({ id: p.id, name: p.name })}
+              className="p-1 rounded hover:bg-[var(--surface-hover)] text-neutral-400 hover:text-choco-600"
+              title="Allouer le stock"
+            >
+              <Boxes size={15} />
+            </button>
+          )}
+          {can('products.close') && p.isPerishable && p.hasRemainingStock && (
+            <button
+              onClick={() => setClosureProduct({ id: p.id, name: p.name })}
+              className="p-1 rounded hover:bg-[var(--surface-hover)] text-neutral-400 hover:text-choco-600"
+              title="Clôturer la journée"
+            >
+              <Lock size={15} />
+            </button>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -161,6 +176,13 @@ export default function ProduitsPage() {
         onClose={() => setAllocProduct(null)}
         productId={allocProduct?.id ?? null}
         productName={allocProduct?.name ?? ''}
+      />
+
+      <ProductClosureModal
+        open={!!closureProduct}
+        onClose={() => { setClosureProduct(null); queryClient.invalidateQueries({ queryKey: ['products'] }); }}
+        productId={closureProduct?.id ?? null}
+        productName={closureProduct?.name ?? ''}
       />
     </div>
   );

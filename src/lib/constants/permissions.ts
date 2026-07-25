@@ -12,6 +12,7 @@ export const PERMISSIONS = {
   'products.write': 'Créer/modifier des produits',
   'products.delete': 'Supprimer des produits',
   'products.allocate': 'Allouer le stock produit entre canaux (Vitrine/Direct)',
+  'products.close': 'Clôturer la journée d\'un produit périssable',
   // Module Commandes
   'orders.read': 'Voir les commandes',
   'orders.manage': 'Changer le statut des commandes',
