@@ -269,14 +269,27 @@ Ordre justifié par les dépendances réelles : impossible de tester UC1 (publie
 
 **Use cases couverts** : UC3.
 
+**Statut : ✅ Terminée le 2026-07-25.**
+
+**Écart d'exécution constaté** : aucun endpoint n'existait pour lister les lots `BomStock` individuels d'une fiche (seul un agrégat existait, ajouté à l'étape 4/5) — plutôt que créer une route dédiée, `GET /api/v1/products/[id]` a été étendu pour inclure `bomSheet.stocks` (lots avec `qtyAvailable > 0`) en plus de `channelStock` déjà présent, car le panel d'allocation ouvre toujours *pour un produit précis* et a besoin des deux en même temps. Permission `products.allocate` ajoutée au type `Permission` (le seed l'avait déjà). Pas de `ProductEditSheet.tsx` — le panel est déclenché par une icône dédiée (`Boxes`) dans `products/page.tsx`, cohérent avec le toggle visibilité déjà en place depuis l'étape 4 (pas besoin d'attendre l'étape 12 pour une action ponctuelle sur une ligne du tableau).
+
+**Fichiers réellement créés/modifiés** :
+- `src/lib/constants/permissions.ts` — ajout `products.allocate`
+- `src/lib/validators/product-channel-stock.ts` *(nouveau)*
+- `src/app/api/v1/products/[id]/allocations/route.ts` *(nouveau)* — POST transactionnel, plafond recalculé en base (`ProductChannelStock.qtyAllocated` déjà alloué sur ce lot, tous produits/canaux confondus, + somme demandée ≤ `BomStock.qtyAvailable`)
+- `src/app/api/v1/products/[id]/route.ts` — `GET` inclut désormais `bomSheet.stocks`
+- `src/components/products/ProductAllocationPanel.tsx` *(nouveau)*
+- `src/app/[locale]/(dashboard)/products/page.tsx` — icône `Boxes` déclenchant le panel
+
 **Test navigateur** :
-1. Ouvrir un produit publié ayant un lot de production disponible (ex. 20 unités).
-2. Allouer 12 à Vitrine, 8 à Direct → validation acceptée (12+8=20).
-3. Tenter d'allouer 15 + 10 = 25 (> 20 disponibles) → rejeté avec message clair, aucune écriture partielle en base (vérifiable dans Prisma Studio — pas de ligne `ProductChannelStock` orpheline).
+1. ✅ Panel ouvert sur "Croissant pur beurre" — sélection d'un lot avec 12 pièces non allouées.
+2. ✅ Tentative 8 Vitrine + 5 Direct (13 > 12) : indicateur client "Dépasse le lot de 1 pièce" **et** rejet serveur confirmé (`Allocation refusée : 13 demandé(s) + 0 déjà alloué(s) > 12 disponible(s)`), aucune ligne créée (liste "Allocations actuelles" inchangée).
+3. ✅ Correction à 7 Vitrine + 5 Direct (12 = 12) → acceptée, les deux lignes apparaissent immédiatement ("Vitrine 7/7", "Direct 5/5"), le lot repasse à "0 pièce restante à allouer" dans le sélecteur.
+4. Le seed pré-existant crée déjà des `ProductChannelStock` de démo (non touché par cette étape) — observé mais hors périmètre.
 
 **Definition of Done** :
-- L'allocation est atomique (transaction Prisma) — pas d'état intermédiaire incohérent possible.
-- L'UI affiche l'allocation courante par canal après sauvegarde, pas juste un formulaire vide.
+- [x] L'allocation est atomique (transaction Prisma) — pas d'état intermédiaire incohérent possible.
+- [x] L'UI affiche l'allocation courante par canal après sauvegarde, pas juste un formulaire vide.
 
 ---
 
