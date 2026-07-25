@@ -86,8 +86,12 @@ export function ProductPublishSheet({ open, onClose, onSuccess }: Props) {
 
   const selectedBomSheetId = watch('bomSheetId');
   const priceHT = watch('priceHT');
+  const vatRateId = watch('vatRateId');
   const marginTargetFactor = watch('marginTargetFactor');
   const selectedSheet = sheets?.find((s) => s.id === selectedBomSheetId);
+  const selectedVatRate = activeVatRates.find((v) => v.id === vatRateId);
+  const priceTTC =
+    priceHT > 0 && selectedVatRate ? priceHT * (1 + Number(selectedVatRate.ratePercent) / 100) : null;
   const marginRatio =
     selectedSheet?.avgUnitCost && priceHT > 0 ? priceHT / selectedSheet.avgUnitCost : null;
   const marginTarget = marginTargetFactor || DEFAULT_MARGIN_TARGET;
@@ -192,6 +196,12 @@ export function ProductPublishSheet({ open, onClose, onSuccess }: Props) {
               {errors.vatRateId && <p className="mt-1 text-erp-xs text-framboise-400">{errors.vatRateId.message}</p>}
             </div>
           </div>
+
+          {priceTTC !== null && (
+            <p className="text-erp-xs text-neutral-500 -mt-2">
+              → Prix TTC : <span className="font-semibold text-choco-600">{priceTTC.toFixed(2)}€</span>
+            </p>
+          )}
 
           {marginRatio !== null && (
             <div
