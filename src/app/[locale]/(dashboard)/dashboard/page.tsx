@@ -21,7 +21,7 @@ interface KpiData {
     orderNumber: string;
     status: OrderStatus;
     totalTTC: number;
-    customer: { firstName: string; lastName: string };
+    customerName: string;
     createdAt: string;
   }>;
 }
@@ -116,7 +116,7 @@ export default function DashboardPage() {
                 >
                   <span className="font-mono text-[11.5px] text-choco-500 font-semibold">{order.orderNumber}</span>
                   <span className="text-erp-sm text-choco-600 font-medium pr-2">
-                    {order.customer.firstName} {order.customer.lastName}
+                    {order.customerName}
                   </span>
                   <Pill tone={ORDER_STATUS_TONE[order.status]} className="w-fit">
                     {ORDER_STATUS_LABELS[order.status] ?? order.status}
