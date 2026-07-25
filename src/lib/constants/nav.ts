@@ -3,6 +3,7 @@ import {
   Boxes, Grid, ArrowLeftRight, Package, Truck, PackagePlus,
   Settings, Users,
   Palette, ShoppingCart, ShoppingBag, Receipt,
+  UserCog,
 } from 'lucide-react';
 import type { Permission } from './permissions';
 
@@ -43,9 +44,14 @@ export const BOUTIQUE_ITEMS: NavItem[] = [
   { id: 'factures', label: 'Factures', href: '/invoices', icon: Receipt, permission: 'invoices.read' },
 ];
 
+export const POS_ITEMS: NavItem[] = [
+  { id: 'pos-vendeurs', label: 'Vendeurs', href: '/pos/vendeurs', icon: UserCog, permission: 'pos.manage' },
+];
+
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   { label: 'Workflow', items: WORKFLOW_ITEMS },
   { label: 'Stock & Achats', items: STOCK_ITEMS },
   { label: 'Référentiels', items: REF_ITEMS },
   { label: 'Boutique en ligne', items: BOUTIQUE_ITEMS },
+  { label: 'Point de vente', items: POS_ITEMS },
 ];

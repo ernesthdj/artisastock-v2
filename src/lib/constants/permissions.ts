@@ -44,6 +44,10 @@ export const PERMISSIONS = {
   // Module Boutique/Produits — taux de TVA par Activité
   'tenant-vat-rates.read': 'Voir les taux de TVA',
   'tenant-vat-rates.write': 'Créer/modifier les taux de TVA',
+  // Module POS — l'appareil comptoir (pas le Vendeur, identifié par PIN à chaque action)
+  'pos.sell': 'Utiliser le comptoir (vente, pointage, caisse)',
+  'pos.read': 'Consulter ventes, écarts de caisse et pointages POS',
+  'pos.manage': 'Gérer les vendeurs (créer, PIN, activer/désactiver)',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

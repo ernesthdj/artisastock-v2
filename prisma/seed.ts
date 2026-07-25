@@ -55,6 +55,7 @@ async function main() {
     'stocks.read', 'stocks.write',
     'achats.read', 'achats.write',
     'tenant-vat-rates.read', 'tenant-vat-rates.write',
+    'pos.sell', 'pos.read', 'pos.manage',
   ];
 
   const adminRole = await prisma.role.upsert({

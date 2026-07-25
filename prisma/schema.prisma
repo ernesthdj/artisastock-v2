@@ -174,6 +174,10 @@ model Tenant {
   tenantVatRates      TenantVatRate[]
   productChannelStock ProductChannelStock[]
   stockClosures       StockClosure[]
+  vendeurs            Vendeur[]
+  sessionsCaisse      SessionCaisse[]
+  pointagesHoraire    PointageHoraire[]
+  posSales            PosSale[]
 
   @@index([slug])
   @@index([isActive])
@@ -488,6 +492,7 @@ model Product {
   bomSheet     BomSheet              @relation(fields: [bomSheetId], references: [id], onDelete: Restrict)
   vatRate      TenantVatRate         @relation(fields: [vatRateId], references: [id], onDelete: Restrict)
   orderItems   OrderItem[]
+  posSaleItems PosSaleItem[]
   channelStock ProductChannelStock[]
   Recipe       Recipe[]
 
@@ -1016,4 +1021,112 @@ model ActiviteStock {
 
   @@id([activiteId, stockId])
   @@index([stockId])
+}
+
+// ═══════════════════════════════════════════════
+// POS (Point de Vente) — docs/modules/POS.md
+// ═══════════════════════════════════════════════
+// Vend depuis ProductChannelStock canal DIRECT (déjà alloué depuis Boutique/Produits
+// étape 7, jamais consommé jusqu'ici) — voir src/lib/products/channel-stock.ts.
+// Identité Vendeur distincte de User : auth PIN comptoir, jamais le JWT admin.
+
+enum SessionCaisseStatus {
+  OPEN
+  CLOSED
+}
+
+enum PosPaymentMethod {
+  CASH
+  CARD
+}
+
+model Vendeur {
+  id                String    @id @default(cuid())
+  tenantId          String
+  firstName         String
+  lastName          String
+  pinHash           String
+  isActive          Boolean   @default(true)
+  failedPinAttempts Int       @default(0)
+  lockedUntil       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessionsCaisse SessionCaisse[]
+  pointages      PointageHoraire[]
+  posSales       PosSale[]
+
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+}
+
+model SessionCaisse {
+  id           String              @id @default(cuid())
+  tenantId     String
+  vendeurId    String
+  openingFloat Decimal             @db.Decimal(10, 2)
+  closingFloat Decimal?            @db.Decimal(10, 2)
+  variance     Decimal?            @db.Decimal(10, 2)
+  status       SessionCaisseStatus @default(OPEN)
+  openedAt     DateTime            @default(now())
+  closedAt     DateTime?
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendeur  Vendeur   @relation(fields: [vendeurId], references: [id], onDelete: Restrict)
+  posSales PosSale[]
+
+  @@index([tenantId])
+  @@index([vendeurId])
+  @@index([tenantId, status])
+}
+
+model PointageHoraire {
+  id        String    @id @default(cuid())
+  tenantId  String
+  vendeurId String
+  clockIn   DateTime  @default(now())
+  clockOut  DateTime?
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendeur Vendeur @relation(fields: [vendeurId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([vendeurId])
+}
+
+// Métadonnées de ticket uniquement — la vérité du stock reste ProductChannelStock,
+// jamais dupliquée ici (contrairement à Order, pas de client/créneau obligatoire).
+model PosSale {
+  id              String           @id @default(cuid())
+  tenantId        String
+  vendeurId       String
+  sessionCaisseId String
+  paymentMethod   PosPaymentMethod
+  totalTTC        Decimal          @db.Decimal(10, 2)
+  createdAt       DateTime         @default(now())
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendeur       Vendeur       @relation(fields: [vendeurId], references: [id], onDelete: Restrict)
+  sessionCaisse SessionCaisse @relation(fields: [sessionCaisseId], references: [id], onDelete: Restrict)
+  items         PosSaleItem[]
+
+  @@index([tenantId])
+  @@index([sessionCaisseId])
+  @@index([tenantId, createdAt])
+}
+
+model PosSaleItem {
+  id           String  @id @default(cuid())
+  posSaleId    String
+  productId    String
+  quantity     Int
+  unitPriceTTC Decimal @db.Decimal(10, 2)
+  totalTTC     Decimal @db.Decimal(10, 2)
+
+  posSale PosSale @relation(fields: [posSaleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([posSaleId])
+  @@index([productId])
 }
