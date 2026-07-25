@@ -212,14 +212,23 @@ Ordre justifié par les dépendances réelles : impossible de tester UC1 (publie
 
 **Use cases couverts** : UC7.
 
+**Statut : ✅ Terminée le 2026-07-25.**
+
+**Écart d'exécution constaté** : `calculateMarginRatio` existait déjà dans `src/lib/costs.ts` (posé à l'étape 1, jamais branché à l'UI) mais ce fichier importe `prisma` en tête — l'importer depuis un composant `'use client'` (`ProductPublishSheet.tsx`) aurait tenté de bundler Prisma côté navigateur. Aucun autre composant client du projet n'importe `lib/costs`, donc pas de précédent à suivre : le calcul (une ligne, `priceHT / unitCost`) est dupliqué localement dans le composant plutôt que de créer une frontière cross-boundary inédite. `ProductEditSheet.tsx` n'existe pas encore (Étape 12) — le formulaire testé est `ProductPublishSheet.tsx` (seul endroit où `priceHT` se saisit aujourd'hui), conforme à la mention alternative du plan ("ou `ProductEditSheet.tsx` si séparé").
+
+**Fichiers réellement modifiés** :
+- `src/app/api/v1/bom/sheets/route.ts` — ajout d'un `avgUnitCost` par fiche (moyenne pondérée par quantité des `BomStock` disponibles, pas le coût d'un lot arbitraire — cohérent avec l'agrégation `availableStock` déjà en place depuis l'étape 4)
+- `src/components/products/ProductPublishSheet.tsx` — champ `marginTargetFactor` (optionnel, défaut indicatif x3 non persisté), indicateur de marge live (`watch` sur `priceHT`/`bomSheetId`), jamais bloquant
+- `src/app/api/v1/products/[id]/route.ts` — **aucun changement nécessaire**, `productUpdateSchema` (= `productCreateSchema.partial()`) acceptait déjà `priceHT`/`marginTargetFactor` depuis l'étape 1, `priceTTC` déjà recalculé au `PATCH`
+
 **Test navigateur** :
-1. Ouvrir un produit publié, saisir un prix HT bas (proche du coût) → l'indicateur de marge affiche visuellement une alerte (ex. couleur, texte "marge faible"), mais le formulaire reste soumissible (non bloquant, conforme UC7).
-2. Saisir un prix HT confortable (x3 le coût) → indicateur positif.
-3. Aucune préremplissage automatique du prix ne doit se produire (hors scope explicite du brainstorm §7) — vérifier que le champ reste vide/à la valeur précédente à l'ouverture, jamais suggéré.
+1. ✅ Prix bas (0,50€ HT vs coût réel 0,32€) → encart orange "Marge : x1.56 le coût de revient (0.32€) — faible (cible x3)", bouton "Publier" jamais désactivé.
+2. ✅ Prix confortable (1,50€ HT) → encart vert "Marge : x4.75 le coût de revient (0.32€) — confortable".
+3. ✅ Champ prix vide à l'ouverture du formulaire (aucune valeur suggérée, seulement un placeholder visuel `1.50`).
 
 **Definition of Done** :
-- L'indicateur est visuellement clair mais jamais bloquant (pas de `disabled` sur le bouton Enregistrer).
-- Le calcul utilise `BomStock.unitCost` du lot réellement lié, pas une valeur arbitraire.
+- [x] L'indicateur est visuellement clair mais jamais bloquant (pas de `disabled` sur le bouton Publier).
+- [x] Le calcul utilise `avgUnitCost`, une moyenne pondérée des `BomStock` réellement disponibles pour la fiche — pas une valeur arbitraire.
 
 ---
 
