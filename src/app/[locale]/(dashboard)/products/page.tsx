@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { Plus, Boxes, Lock } from 'lucide-react';
+import { Plus, Boxes, Lock, Pencil } from 'lucide-react';
 import { formatPrice } from '@/lib/utils/format';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ProductPublishSheet } from '@/components/products/ProductPublishSheet';
 import { ProductAllocationPanel } from '@/components/products/ProductAllocationPanel';
 import { ProductClosureModal } from '@/components/products/ProductClosureModal';
+import { ProductEditSheet } from '@/components/products/ProductEditSheet';
 import { Crumb, Btn, Pill, DataTable, type DataTableColumn } from '@/components/ui';
 
 interface Product {
@@ -31,6 +32,7 @@ export default function ProduitsPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [allocProduct, setAllocProduct] = useState<{ id: string; name: string } | null>(null);
   const [closureProduct, setClosureProduct] = useState<{ id: string; name: string } | null>(null);
+  const [editProductId, setEditProductId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['products'],
@@ -106,6 +108,15 @@ export default function ProduitsPage() {
       width: 40,
       render: (p) => (
         <div className="flex items-center gap-1">
+          {can('products.write') && (
+            <button
+              onClick={() => setEditProductId(p.id)}
+              className="p-1 rounded hover:bg-[var(--surface-hover)] text-neutral-400 hover:text-choco-600"
+              title="Modifier"
+            >
+              <Pencil size={15} />
+            </button>
+          )}
           {can('products.allocate') && (
             <button
               onClick={() => setAllocProduct({ id: p.id, name: p.name })}
@@ -183,6 +194,13 @@ export default function ProduitsPage() {
         onClose={() => { setClosureProduct(null); queryClient.invalidateQueries({ queryKey: ['products'] }); }}
         productId={closureProduct?.id ?? null}
         productName={closureProduct?.name ?? ''}
+      />
+
+      <ProductEditSheet
+        open={!!editProductId}
+        onClose={() => setEditProductId(null)}
+        productId={editProductId}
+        onSuccess={() => setEditProductId(null)}
       />
     </div>
   );
