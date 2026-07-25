@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { Plus, Clock, Boxes } from 'lucide-react';
+import { Plus, Boxes } from 'lucide-react';
 import { formatPrice } from '@/lib/utils/format';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ProductPublishSheet } from '@/components/products/ProductPublishSheet';
@@ -47,6 +47,16 @@ export default function ProduitsPage() {
     onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Erreur'),
   });
 
+  const togglePerishableMutation = useMutation({
+    mutationFn: ({ id, isPerishable }: { id: string; isPerishable: boolean }) =>
+      apiClient.patch(`/api/v1/products/${id}`, { isPerishable }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success('Produit mis à jour');
+    },
+    onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Erreur'),
+  });
+
   const products = data?.data ?? [];
   const total = data?.total ?? 0;
 
@@ -54,21 +64,26 @@ export default function ProduitsPage() {
     {
       key: 'name',
       label: 'Nom',
-      render: (p) => (
-        <div className="flex items-center gap-2">
-          {p.isPerishable && (
-            <span title="Périssable">
-              <Clock size={13} className="text-or-400 flex-shrink-0" />
-            </span>
-          )}
-          <span className="font-medium text-choco-600">{p.name}</span>
-        </div>
-      ),
+      render: (p) => <span className="font-medium text-choco-600">{p.name}</span>,
     },
     { key: 'bomSheet', label: 'Fiche BOM', render: (p) => p.bomSheet.name },
     { key: 'category', label: 'Catégorie', render: (p) => p.category ?? '—' },
     { key: 'vat', label: 'TVA', align: 'right', render: (p) => `${Number(p.vatRate.ratePercent)}%` },
     { key: 'priceTTC', label: 'Prix TTC', align: 'right', render: (p) => formatPrice(Number(p.priceTTC)) },
+    {
+      key: 'perishable',
+      label: 'Périssable',
+      render: (p) => (
+        <button
+          onClick={() => can('products.write') && togglePerishableMutation.mutate({ id: p.id, isPerishable: !p.isPerishable })}
+          disabled={!can('products.write') || togglePerishableMutation.isPending}
+          className="disabled:cursor-default"
+          title="Cliquer pour basculer"
+        >
+          <Pill tone={p.isPerishable ? 'gold' : 'neutral'}>{p.isPerishable ? '⏳ Oui' : 'Non'}</Pill>
+        </button>
+      ),
+    },
     {
       key: 'status',
       label: 'Statut',
