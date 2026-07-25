@@ -40,6 +40,11 @@
 
 ## Historique
 
+### [2026-07-26 01:40] SESSION — End
+**Résumé :** Poursuite du module POS. Terminé et testé au navigateur : Étape 2 (vendeurs + vérification PIN — reprise en fin de session précédente, tests complétés : verrouillage désactivé/réactivé) et Étape 3 (session de caisse — ouverture/fermeture, calcul d'écart, rejets double-ouverture/mauvais-vendeur/déjà-fermée). Bug critique trouvé et corrigé dans `src/lib/api-client.ts` (`??` avalait les réponses `data: null` légitimes). 2 commits pushés (`4811780`, `305eb19`). Prochaine étape à la reprise : Étape 4 — pointage horaire (clock-in/clock-out).
+**Branche :** master
+**Commits pushés :** 2
+
 ### [2026-07-26] SESSION — POS étape 3 : session de caisse (ouverture/fermeture + écart)
 **Résumé :** Implémentation guidée par `docs/modules/POS-IMPLEMENTATION.md` étape 3. `src/lib/validators/session-caisse.ts` (nouveau), `POST /api/v1/pos/caisse/open` (rejette une double-ouverture pour un vendeur via `ALREADY_OPEN`), `POST /api/v1/pos/caisse/[id]/close` (calcule `variance = closingFloat - (openingFloat + ventes cash de la session)`, vérifie que la session appartient bien au vendeur qui ferme), `GET /api/v1/pos/caisse?vendeurId=` (session ouverte courante). UI : `src/components/pos/VendeurPicker.tsx` (nouveau, extrait de `PinPad.tsx` — factorisation faite à la deuxième utilisation, pas anticipée) ; page `/pos/caisse` combine PIN + montant dans un seul formulaire par action (pas de double saisie de PIN identité-puis-action). Nav : entrée "Caisse" ajoutée (permission `pos.sell`, avant "Vendeurs" qui reste `pos.manage`).
 **Bug trouvé et corrigé (critique, `apiClient`, hors périmètre POS strict mais découvert en testant POS) :** `src/lib/api-client.ts` avait `data: json?.data ?? json` — `??` se déclenche aussi sur `null`, pas seulement `undefined`. Résultat : toute réponse `{success:true, data:null}` légitime (ex. "pas de session de caisse ouverte") retombait sur l'enveloppe complète au lieu de `null`, et le frontend traitait cet objet comme une session valide ("Caisse ouverte depuis Invalid Date · fond NaN€"). Aucun endpoint du projet n'avait renvoyé de `data: null` légitime avant cette étape — bug dormant depuis la création du client, révélé par le premier cas d'usage réel. Corrigé : ne retomber sur l'enveloppe que si `'data' in json` est faux, jamais quand `data` vaut `null`.
