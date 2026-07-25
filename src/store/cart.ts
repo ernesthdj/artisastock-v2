@@ -8,8 +8,7 @@ export interface CartItem {
   priceTTC: number;
   quantity: number;
   image?: string;
-  stockType: string;
-  stockQuantity: number | null;
+  vitrineQtyRemaining: number;
 }
 
 interface CartStore {
@@ -39,7 +38,7 @@ export const useCartStore = create<CartStore>()(
             return {
               items: state.items.map((i) =>
                 i.productId === item.productId
-                  ? { ...i, quantity: Math.min(i.quantity + 1, i.stockQuantity ?? 99) }
+                  ? { ...i, quantity: Math.min(i.quantity + 1, i.vitrineQtyRemaining) }
                   : i
               ),
             };
@@ -60,7 +59,7 @@ export const useCartStore = create<CartStore>()(
         set((state) => ({
           items: state.items.map((i) =>
             i.productId === productId
-              ? { ...i, quantity: Math.min(quantity, i.stockQuantity ?? 99) }
+              ? { ...i, quantity: Math.min(quantity, i.vitrineQtyRemaining) }
               : i
           ),
         }));

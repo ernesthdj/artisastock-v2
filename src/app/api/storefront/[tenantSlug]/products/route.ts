@@ -34,9 +34,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ tenan
         category: true, images: true, priceHT: true, priceTTC: true,
         vatRate: { select: { id: true, label: true, ratePercent: true } },
         allergens: true, sortOrder: true,
-        // NOTE endpoint de transition (étape 1) : la lecture du stock réel par
-        // canal (ProductChannelStock, canal VITRINE) n'est pas encore branchée
-        // ici — voir docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md étape 9.
+        channelStock: { where: { channel: 'VITRINE' }, select: { qtyRemaining: true } },
       },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       skip,
@@ -45,5 +43,12 @@ export async function GET(request: NextRequest, props: { params: Promise<{ tenan
     prisma.product.count({ where }),
   ]);
 
-  return apiPaginated(data, page, pageSize, total);
+  // Rupture de stock (UC5) = somme des allocations Vitrine restantes, jamais une
+  // valeur par défaut optimiste — un produit sans ProductChannelStock est à 0.
+  const withStock = data.map(({ channelStock, ...product }) => ({
+    ...product,
+    vitrineQtyRemaining: channelStock.reduce((sum, c) => sum + Number(c.qtyRemaining), 0),
+  }));
+
+  return apiPaginated(withStock, page, pageSize, total);
 }

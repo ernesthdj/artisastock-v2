@@ -19,8 +19,7 @@ interface Product {
   priceTTC: number;
   vatRate: string;
   allergens: string[];
-  stockType: string;
-  stockQuantity: number | null;
+  vitrineQtyRemaining: number;
 }
 
 export default function CatalogPage() {
@@ -50,8 +49,7 @@ export default function CatalogPage() {
   const categories = [...new Set(products.map((p) => p.category))].sort();
 
   const handleAddToCart = (product: Product) => {
-    const isOos = product.stockType === 'limited' && product.stockQuantity !== null && product.stockQuantity <= 0;
-    if (isOos) { toast.error('Ce produit est en rupture de stock'); return; }
+    if (product.vitrineQtyRemaining <= 0) { toast.error('Ce produit est en rupture de stock'); return; }
 
     setTenantSlug(params.tenantSlug);
     addItem({
@@ -60,8 +58,7 @@ export default function CatalogPage() {
       slug: product.slug,
       priceTTC: Number(product.priceTTC),
       image: product.images[0],
-      stockType: product.stockType,
-      stockQuantity: product.stockQuantity,
+      vitrineQtyRemaining: product.vitrineQtyRemaining,
     });
     toast.success(`${product.name} ajouté au panier`);
   };
@@ -123,7 +120,7 @@ export default function CatalogPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {products.map((product) => {
-            const isOos = product.stockType === 'limited' && product.stockQuantity !== null && product.stockQuantity <= 0;
+            const isOos = product.vitrineQtyRemaining <= 0;
 
             return (
               <div key={product.id} className="product-card group">
@@ -142,7 +139,7 @@ export default function CatalogPage() {
                   {isOos && (
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                       <span className="bg-white/90 text-neutral-700 text-sm font-medium px-3 py-1 rounded-full">
-                        Indisponible
+                        Rupture de stock
                       </span>
                     </div>
                   )}

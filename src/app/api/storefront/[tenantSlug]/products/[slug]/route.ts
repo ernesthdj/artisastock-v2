@@ -27,11 +27,16 @@ export async function GET(
     select: {
       id: true, name: true, slug: true, description: true,
       category: true, images: true, priceHT: true, priceTTC: true,
-      vatRate: true, allergens: true, stockType: true, stockQuantity: true,
+      vatRate: true, allergens: true,
+      channelStock: { where: { channel: 'VITRINE' }, select: { qtyRemaining: true } },
     },
   });
 
   if (!product) return apiError('NOT_FOUND', 'Produit introuvable', 404);
 
-  return apiSuccess(product);
+  const { channelStock, ...rest } = product;
+  return apiSuccess({
+    ...rest,
+    vitrineQtyRemaining: channelStock.reduce((sum, c) => sum + Number(c.qtyRemaining), 0),
+  });
 }

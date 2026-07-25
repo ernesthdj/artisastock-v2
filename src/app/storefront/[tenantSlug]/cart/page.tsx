@@ -68,7 +68,7 @@ export default function CartPage() {
                     </span>
                     <button
                       onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                      disabled={item.stockType === 'limited' && item.stockQuantity !== null && item.quantity >= item.stockQuantity}
+                      disabled={item.quantity >= item.vitrineQtyRemaining}
                       className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white dark:hover:bg-slate-600 transition-colors text-neutral-600 disabled:opacity-40"
                     >
                       <Plus size={14} />
