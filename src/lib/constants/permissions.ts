@@ -48,6 +48,8 @@ export const PERMISSIONS = {
   'pos.sell': 'Utiliser le comptoir (vente, pointage, caisse)',
   'pos.read': 'Consulter ventes, écarts de caisse et pointages POS',
   'pos.manage': 'Gérer les vendeurs (créer, PIN, activer/désactiver)',
+  // Module Hub — Vue Flux (diagramme stocks/activité/canaux de vente)
+  'flow.read': 'Consulter la vue flux (stocks liés, activité, canaux de vente)',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

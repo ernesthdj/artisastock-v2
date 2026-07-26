@@ -10,6 +10,9 @@ import { formatPrice } from '@/lib/utils/format';
 import { ORDER_STATUS_LABELS, ORDER_STATUS_TONE } from '@/lib/constants/order-status';
 import { Card, KpiCard, Pill } from '@/components/ui';
 import { ShoppingCart, TrendingUp, AlertTriangle, Package, CheckCircle2 } from 'lucide-react';
+import { useActivite } from '@/providers/ActiviteProvider';
+import { usePermissions } from '@/hooks/use-permissions';
+import { FlowCanvas } from '@/components/flux/FlowCanvas';
 
 interface KpiData {
   ordersToday: number;
@@ -29,6 +32,8 @@ interface KpiData {
 export default function DashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const { activite } = useActivite();
+  const { can } = usePermissions();
 
   const { data: kpi, isLoading } = useQuery({
     queryKey: ['dashboard-kpi'],
@@ -158,6 +163,16 @@ export default function DashboardPage() {
           )}
         </Card>
       </div>
+
+      {can('flow.read') && activite && (
+        <div className="mt-3.5">
+          <Card title="Vue Flux" padded={false}>
+            <div className="p-2">
+              <FlowCanvas activiteId={activite.id} />
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

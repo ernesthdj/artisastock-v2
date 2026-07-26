@@ -124,3 +124,25 @@ graph TD
 ## 8. Prochaine étape
 
 Implémentation guidée par ce workflow (étape 3 de la cascade) : permission `flow.read` d'abord (type + backfill ciblé des rôles existants), puis l'endpoint d'agrégation `flow-summary`, puis l'écran/composant canvas (nouvelle entrée de nav "Flux") — repartant du prototype `flow-hub.jsx` pour l'interaction (drag, zoom, panneau latéral, animation des liens) mais entièrement réécrit contre les vraies données et la vraie permission, testé au navigateur au fur et à mesure.
+
+**Statut : ✅ Implémentée et testée le 2026-07-26, corrigée le même jour après retour utilisateur (voir historique ci-dessous).**
+
+### Historique d'implémentation
+
+**Premier jet (retiré) :** écran dédié plein espace (`/flux`, nouvelle entrée nav), layout statique sans drag. Deux écarts non validés par l'utilisateur avant implémentation :
+1. Emplacement écran dédié — cohérent avec la réponse au brainstorm (§ ci-dessus), mais l'utilisateur est revenu sur ce choix après avoir vu le résultat : **widget intégré dans le Hub**, pas un écran séparé.
+2. **Layout statique sans drag** — celui-ci n'avait **pas** été validé au brainstorm ; simplification décidée unilatéralement à l'implémentation pour limiter la complexité, à tort : le drag était une fonctionnalité centrale du prototype et de l'inspiration Satisfactory/Alchemy Factory explicitement citée par l'utilisateur. Corrigé sur retour direct de l'utilisateur.
+
+**Version corrigée (actuelle) :**
+- **Widget dans le Hub** (`src/components/flux/FlowCanvas.tsx`), intégré dans `dashboard/page.tsx` sous la grille commandes/alertes, gated par `can('flow.read')` — écran/nav dédié supprimés.
+- **Drag & drop réel** : chaque node est repositionnable librement (pointer events, capture du pointeur, distinction clic/drag par seuil de mouvement de 3px pour ne pas ouvrir le panneau après un drag), les liens SVG (courbes bezier) suivent en direct. Layout non persisté (reset au rechargement, comme le mock) — un bouton "Réorganiser" remet la disposition par défaut.
+- **Pas de node "Stocks liés" dépliable sur le canvas** : les stocks individuels (UC4) restent listés dans le panneau latéral au clic plutôt que comme des nodes enfants dépliés — simplification maintenue, plus simple à implémenter, même information livrée.
+- **Fichiers** : `src/lib/constants/permissions.ts` (+`flow.read`), `prisma/seed.ts` (+`flow.read` dans `ALL_PERMISSIONS`, backfill ciblé via `scripts/backfill-flow-permission.ts`), `src/app/api/v1/activites/[id]/flow-summary/route.ts` (agrégation lecture seule, inchangé), `src/components/flux/FlowCanvas.tsx` (nouveau, remplace la page dédiée), `src/app/[locale]/(dashboard)/dashboard/page.tsx` (widget intégré).
+
+### Bug trouvé et corrigé pendant le test navigateur (première version)
+
+Le panneau latéral était initialement en `flex` (réduisant la largeur du contenu principal à l'ouverture) — cela déplaçait les nodes sous le curseur entre les deux clics d'un double-clic, empêchant le navigateur de reconnaître l'événement `dblclick`. Corrigé en `position: absolute` (overlay flottant) — conservé dans la version widget.
+
+### Tests réels effectués (version widget + drag)
+
+Widget affiché dans le Hub avec les vraies données (3 stocks, 2 fiches actives, 2 produits actifs par canal). Drag du node Activité vers une nouvelle position → liens SVG recalculés en direct, aucune ouverture accidentelle du panneau après le drag. Clic simple sur le node déplacé → panneau latéral ouvert normalement (0 alerte, 2 fiches, renommage). Bouton "Réorganiser" → layout par défaut restauré. Renommage réel d'un stock via le panneau (`PATCH /stocks/[id]`, testé puis annulé).
