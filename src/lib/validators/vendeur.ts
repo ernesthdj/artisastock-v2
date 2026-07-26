@@ -16,6 +16,8 @@ export const vendeurUpdateSchema = z.object({
 });
 
 export const verifyPinSchema = z.object({
-  vendeurId: z.string().cuid(),
+  // Optionnel : si présent, vérifie ce vendeur précis ; sinon, identifie parmi tous les
+  // vendeurs actifs du tenant (pavé numérique comptoir, sans sélection préalable).
+  vendeurId: z.string().cuid().optional(),
   pin: pinSchema,
 });

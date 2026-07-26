@@ -5,7 +5,7 @@
 import { NextRequest } from 'next/server';
 import { withPermission, apiSuccess, apiError } from '@/lib/permissions';
 import { verifyPinSchema } from '@/lib/validators/vendeur';
-import { verifyVendeurPin } from '@/lib/pos/vendeur-auth';
+import { verifyVendeurPin, identifyVendeurByPin } from '@/lib/pos/vendeur-auth';
 
 export async function POST(request: NextRequest) {
   return withPermission(request, 'pos.sell', async (ctx) => {
@@ -19,7 +19,9 @@ export async function POST(request: NextRequest) {
       return apiError('VALIDATION_ERROR', 'Données invalides', 400, parsed.error.issues);
     }
 
-    const result = await verifyVendeurPin(ctx.tenantId, parsed.data.vendeurId, parsed.data.pin);
+    const result = parsed.data.vendeurId
+      ? await verifyVendeurPin(ctx.tenantId, parsed.data.vendeurId, parsed.data.pin)
+      : await identifyVendeurByPin(ctx.tenantId, parsed.data.pin);
     if (!result.ok) {
       // Jamais 401 ici : c'est réservé par apiClient à l'expiration du JWT (retry automatique
       // silencieux) — un 401 sur un mauvais PIN déclencherait un second essai côté client,

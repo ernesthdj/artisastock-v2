@@ -13,9 +13,18 @@ Ce document découpe l'implémentation du module POS en étapes séquentielles t
 
 `Vendeur` est distinct de `User` (décidé au brainstorm). Le PIN n'est **pas** un remplacement du JWT admin : l'appareil comptoir reste connecté via le JWT admin existant (un membre du personnel, ou le patron, ouvre la tablette une fois avec son compte `User`). Le PIN identifie **quel Vendeur** effectue l'action courante.
 
-Conséquence directe sur la sécurité (déjà écrite dans `POS.md` §7 hérité de `FONDATION-POS.md` : *"jamais confiance aveugle au payload client"*) : **aucune notion de session/jeton Vendeur** n'est introduite. Chaque action sensible (pointage, ouverture/fermeture de caisse, vente) exige `{ vendeurId, pin }` dans le payload et le serveur revérifie le PIN à chaque fois — pas de "déverrouillage" qui resterait valide sans re-saisie. Plus simple qu'un système de token séparé, et ça élimine complètement le risque d'un vendeur oublié "connecté" sur la tablette.
+Conséquence directe sur la sécurité (déjà écrite dans `POS.md` §7 hérité de `FONDATION-POS.md` : *"jamais confiance aveugle au payload client"*) : chaque action sensible (pointage, ouverture/fermeture de caisse, vente) exige `{ vendeurId, pin }` dans le payload et **le serveur revérifie le PIN à chaque fois** — ce principe reste inchangé après la refonte ci-dessous, seule l'expérience UI change (voir §9).
 
 Verrouillage anti-brute-force (`Vendeur.failedPinAttempts`/`lockedUntil`, déjà au schéma) : incrémenté à chaque échec, remis à zéro à chaque succès, verrouillage temporaire au-delà d'un seuil.
+
+### Révision du 2026-07-26 — retour utilisateur après usage réel
+
+Après avoir testé les étapes 2-6 en conditions réelles (un seul vendeur actif au comptoir), l'utilisateur a demandé une refonte UX : *"il y a trop d'étapes séparées avant de pointer des ventes qui cassent le workflow"*. Deux changements, actés explicitement (pas une simplification silencieuse) :
+
+1. **Identification par PIN seul, sans sélection préalable du vendeur** — le pavé numérique est désormais le point d'entrée par défaut de la Caisse ; le PIN identifie qui l'a tapé (`identifyVendeurByPin`, compare contre tous les vendeurs actifs du tenant). **Compromis de sécurité assumé** : le verrouillage anti-brute-force reste par-vendeur, mais un PIN qui ne correspond à aucun vendeur actif n'incrémente aucun compteur (on ne sait pas qui ciblait la tentative) — acceptable pour un comptoir à faible nombre de vendeurs, à revoir (throttle global par tenant) si l'usage réel le justifie.
+2. **"Déverrouillage" pour la durée d'une vente** — une fois le PIN vérifié, le vendeur reste identifié côté client (`{vendeurId, pin}` en mémoire React, jamais persisté) le temps de composer et finaliser **une** vente, sans redemander le code à chaque étape (ouverture de caisse si besoin, ajout au panier, finalisation). Le serveur, lui, **continue de revérifier le PIN à chaque requête** — rien ne change côté sécurité serveur, seul le nombre de fois où l'humain retape son code diminue. Dès la vente finalisée (ou fermeture de caisse), le POS revient automatiquement au pad numérique — pas de "session" qui persiste au-delà.
+
+**Conséquence sur la structure des pages** : `/pos/vente` et `/pos/pointage` sont supprimées, tout est consolidé dans `/pos/caisse` (pad → identification → vente/ouverture-fermeture caisse, + un accès direct "Début/Fin de service" pour le pointage, avec son propre mini-pavé PIN si aucun vendeur n'est déjà identifié). `/pos/vendeurs` (admin CRUD) reste séparée, hors du parcours comptoir.
 
 ---
 
@@ -182,6 +191,21 @@ Verrouillage anti-brute-force (`Vendeur.failedPinAttempts`/`lockedUntil`, déjà
 **Écart d'exécution constaté** : le plan mentionnait un rejet "direct 400" sans préciser le mécanisme — implémenté via un symbole sentinel jeté dans le callback de `$transaction` (garantit qu'aucune écriture n'est commitée, même partiellement, si `consumeChannelStockOrFlagConflict` renvoie `false`), plutôt qu'un simple `return null` qui aurait quand même commité la transaction. Cast `tx as unknown as PrismaClient` nécessaire : le client tenant-scopé (`getPrismaWithTenant`) n'est structurellement pas assignable au type `PrismaClient` attendu par `consumeChannelStockOrFlagConflict`, bien que compatible à l'exécution (mêmes délégués de modèle).
 
 **Tests réels effectués** : vente réelle au navigateur (1× Pain de campagne, Espèces, PIN) → stock `DIRECT` 150→149 dispo affiché en direct après invalidation de la query, panier vidé. Tentative avec quantité > stock disponible (Croissant, via appel API direct) → `400 INSUFFICIENT_STOCK`, stock inchangé avant/après (35→35, aucune écriture partielle). Vente tentée avec une session de caisse fermée entre-temps → `400 SESSION_CLOSED`.
+
+---
+
+## Étape 6bis — Refonte comptoir consolidée (retour utilisateur, voir décision d'architecture révisée en tête de document)
+
+**Fichiers concernés** :
+- `src/lib/pos/vendeur-auth.ts` — `identifyVendeurByPin(tenantId, pin)` *(nouveau)* : identifie le vendeur par le PIN seul, sans `vendeurId` connu à l'avance (compare contre chaque vendeur actif du tenant)
+- `src/lib/validators/vendeur.ts` — `verifyPinSchema.vendeurId` devient optionnel
+- `src/app/api/v1/pos/vendeurs/verify-pin/route.ts` — bascule vers `identifyVendeurByPin` si `vendeurId` absent du payload
+- `src/components/pos/PinPad.tsx` — retire la présélection via `VendeurPicker`, pavé affiché directement ; nouveau prop `variant: 'modal' | 'inline'` ; `onVerified(vendeur, pin)` renvoie désormais aussi le PIN saisi (pour que l'appelant le mémorise en mémoire, cf. décision révisée)
+- `src/app/[locale]/(dashboard)/pos/caisse/page.tsx` — **réécrite entièrement** : pad numérique par défaut → une fois identifié (`unlocked: {id, firstName, lastName, pin}` en state), ouverture de caisse si besoin puis vente (panier, produits, finalisation) sans redemander le PIN, retour automatique au pad après vente finalisée ou caisse fermée ; boutons "Début de service"/"Fin de service" toujours visibles (réutilisent le PIN déjà mémorisé si un vendeur est identifié, sinon ouvrent un mini-pavé PIN dédié)
+- `src/app/[locale]/(dashboard)/pos/vente/` et `.../pos/pointage/` — **supprimées** (fonctionnalité absorbée par `/pos/caisse`)
+- `src/lib/constants/nav.ts` — entrées "Vente" et "Pointage" retirées
+
+**Tests réels effectués** : pad numérique affiché par défaut (plus de grille de sélection vendeur) ; PIN de Marie (1234) tapé seul → identifiée directement, session de caisse déjà ouverte détectée sans re-prompt ; vente (1× Pain de campagne) composée et finalisée sans jamais retaper le PIN → toast "Vente finalisée — 3.71€" → retour automatique au pad ; "Début de service" sans vendeur identifié → mini-pavé PIN dédié → PIN de Marie → rejet correct `ALREADY_CLOCKED_IN` (pointage déjà ouvert d'un test antérieur) ; "Fin de service" → PIN → "Départ pointé", modal fermée, retour au pad.
 
 ---
 

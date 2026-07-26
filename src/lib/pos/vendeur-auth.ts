@@ -15,6 +15,30 @@ export type VendeurAuthResult =
   | { ok: true; vendeur: { id: string; firstName: string; lastName: string } }
   | { ok: false; code: VendeurAuthFailureCode; message: string };
 
+// Identifie le vendeur à partir du seul PIN (pavé numérique comptoir, sans sélection
+// préalable) — compare le PIN à chaque vendeur actif du tenant jusqu'à trouver une
+// correspondance. Compromis assumé (demandé explicitement, cf. docs/modules/POS.md) :
+// le verrouillage anti-brute-force reste par-vendeur (voir verifyVendeurPin), donc un PIN
+// qui ne correspond à aucun vendeur actif n'incrémente aucun compteur — on ne sait pas
+// quel vendeur ciblait la tentative. Acceptable pour un boîtier comptoir à faible nombre
+// de vendeurs ; à revoir (ex. throttle global par tenant) si l'usage réel le justifie.
+export async function identifyVendeurByPin(tenantId: string, pin: string): Promise<VendeurAuthResult> {
+  const vendeurs = await prisma.vendeur.findMany({ where: { tenantId, isActive: true } });
+
+  for (const vendeur of vendeurs) {
+    if (vendeur.lockedUntil && vendeur.lockedUntil > new Date()) continue;
+    const valid = await verifyPassword(pin, vendeur.pinHash);
+    if (valid) {
+      if (vendeur.failedPinAttempts > 0) {
+        await prisma.vendeur.update({ where: { id: vendeur.id }, data: { failedPinAttempts: 0, lockedUntil: null } });
+      }
+      return { ok: true, vendeur: { id: vendeur.id, firstName: vendeur.firstName, lastName: vendeur.lastName } };
+    }
+  }
+
+  return { ok: false, code: 'INVALID_PIN', message: 'PIN incorrect' };
+}
+
 export async function verifyVendeurPin(
   tenantId: string,
   vendeurId: string,
