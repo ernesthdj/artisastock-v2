@@ -42,6 +42,19 @@
 
 ## Historique
 
+### [2026-07-26] SESSION — POS étape 6 : finalisation de la vente
+**Résumé :** Implémentation guidée par `docs/modules/POS-IMPLEMENTATION.md` étape 6. `POST /api/v1/pos/sales` (nouveau) : vérifie session `OPEN` du vendeur, décrémente `ProductChannelStock` DIRECT via `consumeChannelStockOrFlagConflict` dans une transaction, crée `PosSale`/`PosSaleItem`. Rejet tout-ou-rien via un sentinel jeté dans le callback de transaction (pas un simple `return null`, qui aurait commité quand même). Formulaire de finalisation câblé sur `/pos/vente` (Espèces/Carte + PIN).
+**Bug évité (pas trouvé, anticipé) :** un `return null` dans le callback `$transaction` aurait laissé Prisma commiter la transaction même en cas d'échec logique — utilisé un symbole jeté (`throw`) à la place pour garantir le rollback réel.
+**Tests réels effectués :** vente réelle au navigateur (stock DIRECT décrémenté 150→149, visible en direct) ; quantité > stock disponible → `400 INSUFFICIENT_STOCK`, stock inchangé (aucune écriture partielle, vérifié avant/après) ; vente sur session de caisse fermée entre-temps → `400 SESSION_CLOSED`.
+**Branche :** master (non commité — en attente de confirmation explicite)
+**Prochaine étape :** Étape 7 — écrans admin de consultation (historique ventes, écarts de caisse, pointages).
+
+### [2026-07-26] SESSION — POS étape 5 : écran de vente (produits + stock DIRECT)
+**Résumé :** Implémentation guidée par `docs/modules/POS-IMPLEMENTATION.md` étape 5. `GET /api/v1/pos/products` (nouveau, produits actifs + `directQtyRemaining` agrégé, même pattern que `vitrineQtyRemaining` du storefront). Page `/pos/vente` (layout dashboard, cohérent avec Caisse/Pointage/Vendeurs) : précondition session de caisse ouverte vérifiée avant d'afficher le catalogue, panier en mémoire (`useState`) avec steppers +/-, total recalculé en direct. Pas de décrément ni de soumission — réservé à l'étape 6.
+**Tests réels effectués :** précondition caisse fermée → message bloquant ; caisse ouverte → catalogue avec stock `DIRECT` réel ; panier 2×Pain+1×Croissant = 8.92€ ; retrait total du Croissant → ligne supprimée, total 7.42€.
+**Branche :** master (non commité à la fin de cette session — en attente de confirmation explicite avant commit/push)
+**Prochaine étape :** Étape 6 — finalisation de la vente (décrément `ProductChannelStock` DIRECT via `consumeChannelStockOrFlagConflict`, création `PosSale`/`PosSaleItem`).
+
 ### [2026-07-26 16:15] SESSION — End
 **Résumé :** Fix cache React Query VendeurPicker (menu Caisse invisible après création vendeur, sans rapport avec le déploiement — alignement des clés de query). Diagnostic et résolution du "menu POS invisible en prod" : schéma POS jamais poussé sur Supabase prod + permissions figées sur les rôles Admin (snapshot pré-module) — corrigé via `supabase db query --linked` (accès Management API, contourne la garde de sécurité qui scrube les connection strings Vercel). Brainstorm module Vue Flux (Hub) exporté (`docs/modules/FLUX.md`), à partir d'un prototype Claude Design lu via `DesignSync`. Implémentation POS étape 4 (pointage horaire) terminée et testée. 3 commits pushés (`e6f6b75`, `1acfedb` + le fix caisse de la session précédente).
 **Branche :** master

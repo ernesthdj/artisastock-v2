@@ -147,25 +147,41 @@ Verrouillage anti-brute-force (`Vendeur.failedPinAttempts`/`lockedUntil`, déjà
 ## Étape 5 — Écran de vente : produits + stock DIRECT
 
 **Fichiers concernés** :
-- `src/app/api/v1/pos/products/route.ts` *(nouveau)* — liste des `Product` actifs avec leur stock `DIRECT` restant agrégé (même pattern que `vitrineQtyRemaining`, étape 9 de Boutique/Produits, appliqué au canal `DIRECT`)
-- `src/app/[locale]/(dashboard)/pos/page.tsx` ou route dédiée hors du layout admin habituel *(nouveau — à trancher à l'implémentation selon l'ergonomie tactile réelle, cf. `POS.md` "Responsive universel : tablette, dalle tactile"* )
-- Composition de vente en mémoire côté client (panier comptoir), pas encore de décrément (étape 6)
+- `src/app/api/v1/pos/products/route.ts` *(nouveau)* — liste des `Product` actifs (`isActive`, `deletedAt: null` — volontairement pas `isVisible`/`isClickCollect`, concepts storefront non pertinents au comptoir) avec leur stock `DIRECT` restant agrégé (même pattern que `vitrineQtyRemaining`, étape 9 de Boutique/Produits, appliqué au canal `DIRECT`)
+- `src/app/[locale]/(dashboard)/pos/vente/page.tsx` *(nouveau)* — même layout dashboard que Caisse/Pointage/Vendeurs (cohérence avec le reste du module, pas de layout tactile dédié pour cette première passe)
+- `src/lib/constants/nav.ts` — entrée "Vente" ajoutée (permission `pos.sell`, entre Caisse et Pointage)
+- Composition de vente en mémoire côté client (`useState` panier), pas encore de décrément (étape 6)
 
 **Test navigateur** :
 1. Écran affiche les produits avec leur stock `DIRECT` réel.
-2. Produit à 0 en `DIRECT` grisé/indisponible à la sélection, cohérent avec le storefront (étape 9 Boutique/Produits).
+2. Précondition caisse ouverte respectée : sans session `OPEN` pour le vendeur sélectionné, message explicite + pas d'accès au catalogue (au lieu de l'écran de vente).
+3. Ajout/retrait au panier (steppers +/-), total recalculé en direct, retrait total supprime la ligne.
+
+**Statut : ✅ Terminée le 2026-07-26.**
+
+**Écart d'exécution constaté** : route dans `(dashboard)/pos/vente/` plutôt qu'un layout tactile séparé — décision prise à l'implémentation par cohérence avec Caisse/Pointage/Vendeurs (déjà tous dans le layout admin standard malgré la mention "ergonomie tactile" du brainstorm) ; à revoir si l'usage réel sur tablette le justifie.
+
+**Tests réels effectués** : précondition "aucune session de caisse ouverte" affichée correctement (message + lien implicite vers Caisse) ; après ouverture de caisse, catalogue affiché avec 2 produits réels et leur stock `DIRECT` (`Pain de campagne` 150 dispo, `Croissant pur beurre` 35 dispo) ; ajout de 2× Pain + 1× Croissant → total 8.92€ correct ; décrément du Croissant à 0 → ligne supprimée du panier, total recalculé à 7.42€.
 
 ---
 
 ## Étape 6 — Finalisation de la vente
 
 **Fichiers concernés** :
-- `src/app/api/v1/pos/sales/route.ts` *(nouveau)* — `POST { vendeurId, pin, sessionCaisseId, paymentMethod, items }` : vérifie caisse `OPEN` pour ce vendeur, décrémente `ProductChannelStock` canal `DIRECT` via `consumeChannelStockOrFlagConflict` (réutilisé tel quel, juste le paramètre `channel`), crée `PosSale`/`PosSaleItem` dans la même transaction — **rejet direct (400) si stock insuffisant, pas de statut `STOCK_CONFLICT`** (aucun paiement externe déjà capturé contrairement au webhook Stripe, donc pas de commande fantôme à gérer après coup)
+- `src/lib/validators/pos-sale.ts` *(nouveau)* — `{ vendeurId, pin, sessionCaisseId, paymentMethod, items: [{productId, quantity}] }`
+- `src/app/api/v1/pos/sales/route.ts` *(nouveau)* — vérifie que la session appartient au vendeur et est `OPEN`, décrémente `ProductChannelStock` canal `DIRECT` via `consumeChannelStockOrFlagConflict` (réutilisé tel quel, juste le paramètre `channel`), crée `PosSale`/`PosSaleItem` dans la même transaction (`throw` d'un sentinel si stock insuffisant → rollback complet de la transaction, capturé ensuite pour renvoyer 400) — **rejet direct, pas de statut `STOCK_CONFLICT`** (aucun paiement externe déjà capturé contrairement au webhook Stripe)
+- `src/app/[locale]/(dashboard)/pos/vente/page.tsx` — formulaire de finalisation câblé (choix Espèces/Carte + PIN), invalide la query produits au succès pour rafraîchir le stock affiché
 
 **Test navigateur** :
 1. Vente avec stock suffisant → succès, `ProductChannelStock` `DIRECT` décrémenté, ticket visible dans l'historique (étape 7).
 2. Vente avec stock insuffisant → rejetée avec message clair, aucune écriture partielle.
 3. Vente tentée sans caisse ouverte → rejetée.
+
+**Statut : ✅ Terminée le 2026-07-26.**
+
+**Écart d'exécution constaté** : le plan mentionnait un rejet "direct 400" sans préciser le mécanisme — implémenté via un symbole sentinel jeté dans le callback de `$transaction` (garantit qu'aucune écriture n'est commitée, même partiellement, si `consumeChannelStockOrFlagConflict` renvoie `false`), plutôt qu'un simple `return null` qui aurait quand même commité la transaction. Cast `tx as unknown as PrismaClient` nécessaire : le client tenant-scopé (`getPrismaWithTenant`) n'est structurellement pas assignable au type `PrismaClient` attendu par `consumeChannelStockOrFlagConflict`, bien que compatible à l'exécution (mêmes délégués de modèle).
+
+**Tests réels effectués** : vente réelle au navigateur (1× Pain de campagne, Espèces, PIN) → stock `DIRECT` 150→149 dispo affiché en direct après invalidation de la query, panier vidé. Tentative avec quantité > stock disponible (Croissant, via appel API direct) → `400 INSUFFICIENT_STOCK`, stock inchangé avant/après (35→35, aucune écriture partielle). Vente tentée avec une session de caisse fermée entre-temps → `400 SESSION_CLOSED`.
 
 ---
 
