@@ -117,6 +117,10 @@ export default function CaissePage() {
         items,
       }),
     onSuccess: (res) => {
+      // Le stock affiché (directQtyRemaining) est recalculé côté serveur depuis les ingrédients
+      // consommés par cette vente — sans invalidation, la prochaine ouverture de caisse
+      // réafficherait l'ancienne disponibilité tant que la query n'est pas retombée en stale.
+      queryClient.invalidateQueries({ queryKey: ['pos-products'] });
       toast.success(`Vente finalisée — ${Number(res.data.totalTTC).toFixed(2)}€`);
       lock();
     },
@@ -277,6 +281,10 @@ export default function CaissePage() {
                         <div className="grid grid-cols-2 gap-3">
                           {products?.map((product) => {
                             const inCart = cart[product.id] ?? 0;
+                            // Décompte optimiste : reflète immédiatement ce qui est déjà dans le
+                            // panier, sans attendre l'invalidation réseau post-vente — le chiffre
+                            // affiché doit bouger au clic, pas seulement après un rechargement.
+                            const remaining = Math.max(0, product.directQtyRemaining - inCart);
                             const isOos = product.directQtyRemaining <= 0;
                             return (
                               <button
@@ -293,7 +301,7 @@ export default function CaissePage() {
                                   {isOos ? (
                                     <Pill tone="crit">rupture</Pill>
                                   ) : (
-                                    <span className="text-erp-xs text-neutral-500">{product.directQtyRemaining} dispo</span>
+                                    <span className="text-erp-xs text-neutral-500">{remaining} dispo</span>
                                   )}
                                 </div>
                               </button>
