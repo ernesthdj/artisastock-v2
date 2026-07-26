@@ -120,12 +120,27 @@ Verrouillage anti-brute-force (`Vendeur.failedPinAttempts`/`lockedUntil`, déjà
 ## Étape 4 — Pointage horaire
 
 **Fichiers concernés** :
-- `src/app/api/v1/pos/vendeurs/[id]/clock-in/route.ts` / `clock-out/route.ts` *(nouveau)*
-- UI comptoir : bouton pointage lié au PIN
+- `src/lib/validators/pointage.ts` *(nouveau)* — schéma `{ pin }` seul (le vendeur est identifié par l'URL, pas par le corps)
+- `src/app/api/v1/pos/vendeurs/[id]/clock-in/route.ts` *(nouveau)* — rejette `ALREADY_CLOCKED_IN` (400) si un pointage sans `clockOut` existe déjà pour ce vendeur
+- `src/app/api/v1/pos/vendeurs/[id]/clock-out/route.ts` *(nouveau)* — cherche le pointage ouvert le plus récent (`clockOut: null`), rejette `NOT_CLOCKED_IN` (400) si aucun
+- `src/app/api/v1/pos/vendeurs/[id]/pointage/route.ts` *(nouveau)* — `GET` le pointage ouvert courant, utilisé par l'UI pour savoir quel formulaire afficher
+- `src/app/[locale]/(dashboard)/pos/pointage/page.tsx` *(nouveau)* — même pattern que `/pos/caisse` (`VendeurPicker` + formulaire PIN unique par action)
+- `src/lib/constants/nav.ts` — entrée "Pointage" ajoutée au groupe Point de vente (permission `pos.sell`, entre Caisse et Vendeurs)
 
 **Test navigateur** :
-1. Pointer l'arrivée → horodatage créé.
-2. Pointer le départ → `clockOut` renseigné sur le même enregistrement, pas un nouveau.
+1. Pointer l'arrivée → horodatage créé, écran bascule automatiquement sur le formulaire de départ (sans reload).
+2. Pointer le départ → `clockOut` renseigné sur le même enregistrement ; re-sélectionner le vendeur relance un cycle propre (formulaire d'arrivée).
+
+**Statut : ✅ Terminée le 2026-07-26.**
+
+**Écart d'exécution constaté** : aucun sur les routes — plan suivi tel quel. Une route `GET .../pointage` (non prévue explicitement dans le plan) a été ajoutée pour que l'UI sache quel formulaire afficher, sur le même modèle que `GET /pos/caisse?vendeurId=`.
+
+**Tests réels effectués (navigateur + appels API directs pour les cas d'erreur)** :
+- Cycle complet au navigateur : arrivée pointée (16:03) → départ pointé (16:04) → re-sélection du vendeur → nouveau cycle propre proposé.
+- PIN erroné sur `/clock-in` → `400 INVALID_PIN` (jamais 401, même règle que les étapes 2-3).
+- `/clock-out` sans arrivée pointée → `400 NOT_CLOCKED_IN`.
+- Double `/clock-in` consécutif → le premier réussit (`201`), le second rejeté `400 ALREADY_CLOCKED_IN`.
+- Vendeur et pointages de test supprimés après vérification.
 
 ---
 

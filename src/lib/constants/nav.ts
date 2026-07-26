@@ -3,7 +3,7 @@ import {
   Boxes, Grid, ArrowLeftRight, Package, Truck, PackagePlus,
   Settings, Users,
   Palette, ShoppingCart, ShoppingBag, Receipt,
-  UserCog, Wallet,
+  UserCog, Wallet, Clock,
 } from 'lucide-react';
 import type { Permission } from './permissions';
 
@@ -46,6 +46,7 @@ export const BOUTIQUE_ITEMS: NavItem[] = [
 
 export const POS_ITEMS: NavItem[] = [
   { id: 'pos-caisse', label: 'Caisse', href: '/pos/caisse', icon: Wallet, permission: 'pos.sell' },
+  { id: 'pos-pointage', label: 'Pointage', href: '/pos/pointage', icon: Clock, permission: 'pos.sell' },
   { id: 'pos-vendeurs', label: 'Vendeurs', href: '/pos/vendeurs', icon: UserCog, permission: 'pos.manage' },
 ];
 
