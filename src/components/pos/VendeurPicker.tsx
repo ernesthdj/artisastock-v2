@@ -16,10 +16,11 @@ interface Props {
 }
 
 // Grille de sélection vendeur réutilisée par PinPad et par les écrans comptoir (caisse, vente,
-// pointage) — un seul point pour la query 'pos-vendeurs-picker' (vendeurs actifs uniquement).
+// pointage) — clé ['pos-vendeurs', 'picker'] : préfixe partagé avec ['pos-vendeurs'] de la page
+// admin, pour que ses invalidateQueries (création, reset PIN, toggle actif) rafraîchissent aussi ce picker.
 export function VendeurPicker({ selectedId, onSelect }: Props) {
   const { data: vendeurs } = useQuery({
-    queryKey: ['pos-vendeurs-picker'],
+    queryKey: ['pos-vendeurs', 'picker'],
     queryFn: async () => {
       const res = await apiClient.get<VendeurOption[]>('/api/v1/pos/vendeurs?activeOnly=true&pageSize=100');
       return res.data;
