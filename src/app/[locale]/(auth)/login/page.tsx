@@ -29,7 +29,8 @@ const S = {
   } as React.CSSProperties,
   input: {
     width: '100%', height: 38, padding: '0 12px',
-    borderRadius: 5, border: '1px solid #D4B799',
+    borderRadius: 5,
+    borderWidth: 1, borderStyle: 'solid', borderColor: '#D4B799',
     background: '#FFFFFF', fontSize: 13.5, color: '#3D2817',
     outline: 'none', transition: 'border-color .15s, box-shadow .15s',
     fontFamily: 'Inter, -apple-system, sans-serif',
