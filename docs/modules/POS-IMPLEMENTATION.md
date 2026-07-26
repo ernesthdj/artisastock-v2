@@ -212,15 +212,20 @@ Après avoir testé les étapes 2-6 en conditions réelles (un seul vendeur acti
 ## Étape 7 — Écrans admin de consultation
 
 **Fichiers concernés** :
-- `src/app/api/v1/pos/sales/route.ts` (`GET`, déjà créé étape 6, ajouter le filtrage vendeur/session/date)
-- `src/app/api/v1/pos/caisse-sessions/route.ts` *(nouveau)* — liste avec écarts
-- `src/app/api/v1/pos/pointages/route.ts` *(nouveau)* — RBAC : un Vendeur ne verrait que les siens si jamais un accès direct Vendeur existait ; pour l'instant ces écrans sont admin uniquement (`pos.read`)
-- Pages admin : historique ventes, écarts de caisse, pointages
+- `src/app/api/v1/pos/sales/route.ts` — `GET` ajouté (filtrage `vendeurId`/`sessionCaisseId`, inclut vendeur + articles)
+- `src/app/api/v1/pos/caisse-sessions/route.ts` *(nouveau)* — liste des sessions avec écarts
+- `src/app/api/v1/pos/pointages/route.ts` *(nouveau)* — admin uniquement (`pos.read`) ; pas de RBAC "voit les siens" car aucun accès direct Vendeur au POS (identité PIN, pas de compte `User`)
+- `src/app/[locale]/(dashboard)/pos/historique/page.tsx` *(nouveau)* — un seul écran à onglets (Ventes / Caisse / Pointages) plutôt que 3 pages séparées, cohérent avec la consolidation de l'étape 6bis
+- `src/lib/constants/nav.ts` — entrée "Historique" ajoutée (permission `pos.read`)
 
 **Test navigateur** :
 1. Historique des ventes visible avec vendeur/montant/mode de paiement par ticket.
 2. Écarts de caisse listés par session.
 3. Pointages de l'équipe consultables.
+
+**Statut : ✅ Terminée le 2026-07-26. Module POS complet (7/7 étapes).**
+
+**Tests réels effectués** : onglet Ventes → ventes réelles listées (vendeur, articles agrégés `qté× nom`, mode de paiement, montant) ; onglet Caisse → sessions avec statut Ouverte/Fermée et écart coloré (vert si nul, rouge si négatif) ; onglet Pointages → pointage en cours affiché avec pill "en cours" tant que `clockOut` est `null`.
 
 ---
 

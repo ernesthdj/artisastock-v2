@@ -7,12 +7,36 @@
 import { NextRequest } from 'next/server';
 import type { PrismaClient } from '@prisma/client';
 import { getPrismaWithTenant } from '@/lib/prisma';
-import { withPermission, apiCreated, apiError } from '@/lib/permissions';
+import { withPermission, apiCreated, apiSuccess, apiError } from '@/lib/permissions';
 import { posSaleSchema } from '@/lib/validators/pos-sale';
 import { verifyVendeurPin } from '@/lib/pos/vendeur-auth';
 import { consumeChannelStockOrFlagConflict } from '@/lib/products/channel-stock';
 
 const INSUFFICIENT_STOCK = Symbol('INSUFFICIENT_STOCK');
+
+// GET /api/v1/pos/sales?vendeurId=&sessionCaisseId= — Historique des ventes (UC9)
+export async function GET(request: NextRequest) {
+  return withPermission(request, 'pos.read', async (ctx) => {
+    const db = getPrismaWithTenant(ctx.tenantId);
+    const sp = request.nextUrl.searchParams;
+
+    const where: { vendeurId?: string; sessionCaisseId?: string } = {};
+    if (sp.get('vendeurId')) where.vendeurId = sp.get('vendeurId')!;
+    if (sp.get('sessionCaisseId')) where.sessionCaisseId = sp.get('sessionCaisseId')!;
+
+    const sales = await db.posSale.findMany({
+      where,
+      include: {
+        vendeur: { select: { firstName: true, lastName: true } },
+        items: { include: { product: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+
+    return apiSuccess(sales);
+  });
+}
 
 export async function POST(request: NextRequest) {
   return withPermission(request, 'pos.sell', async (ctx) => {

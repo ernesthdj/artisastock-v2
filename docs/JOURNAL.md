@@ -44,6 +44,12 @@
 
 ## Historique
 
+### [2026-07-26] SESSION — POS étape 7 : écrans admin de consultation (module POS complet, 7/7)
+**Résumé :** `GET /pos/sales` (filtrage vendeur/session), `GET /pos/caisse-sessions` et `GET /pos/pointages` (nouveaux). Un seul écran `/pos/historique` à onglets (Ventes/Caisse/Pointages) plutôt que 3 pages séparées, cohérent avec la consolidation de la refonte comptoir. Module POS complet.
+**Tests réels effectués :** les 3 onglets affichent les vraies données de session (ventes, écarts de caisse colorés, pointage en cours).
+**Branche :** master (non commité — en attente de confirmation explicite)
+**Prochaine étape :** rédiger un scénario Workflow Complet pour tester toute l'app et corriger les coquilles/bugs silencieux (demande explicite de l'utilisateur).
+
 ### [2026-07-26] SESSION — Refonte comptoir POS consolidée (retour utilisateur)
 **Résumé :** L'utilisateur a signalé après usage réel : "trop d'étapes séparées avant de pointer des ventes qui cassent le workflow" (3 pages — Caisse/Vente/Pointage — chacune redemandant le PIN). Refonte demandée explicitement : pad numérique par défaut sur Caisse, identification par PIN seul (sans sélection préalable du vendeur), le vendeur reste "déverrouillé" côté client le temps de composer et finaliser une vente (aucune re-saisie du code), retour automatique au pad après la vente. Un bouton "Début/Fin de service" sur la même page couvre le pointage. Tout consolidé sur une seule page.
 **Implémentation :** `identifyVendeurByPin` (nouveau, cherche parmi tous les vendeurs actifs du tenant — compromis de sécurité assumé et documenté : pas de lockout attribuable si aucun match). `verify-pin` accepte désormais un `vendeurId` optionnel. `PinPad` retiré de sa dépendance à `VendeurPicker`, ajoute un variant `inline`, renvoie le PIN saisi à l'appelant. `/pos/caisse` réécrite entièrement (pad → identification → caisse/vente sans re-prompt → retour pad). `/pos/vente` et `/pos/pointage` supprimées (absorbées), nav nettoyée.

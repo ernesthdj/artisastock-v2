@@ -168,7 +168,7 @@ Les restaurateurs qui ne sont pas experts du métier logiciel sont mal servis pa
 1. ~~**Brainstorm module Boutique/Produits**~~ ✅ fait le 2026-07-24 (`docs/modules/BOUTIQUE-PRODUITS.md`).
 2. ~~Implémentation du module Boutique/Produits guidée par ce workflow~~ ✅ terminée le 2026-07-25 (12/12 étapes, `docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md`).
 3. ~~Brainstorm module POS~~ ✅ fait le 2026-07-25 (`docs/modules/POS.md`) — réutilise `ProductChannelStock`/canal `DIRECT` déjà construit, offline et lien RH explicitement différés.
-4. **Implémentation du module POS** guidée par ce workflow (en cours — étape 6/7, finalisation vente, terminée le 2026-07-26 ; étape 7 restante : écrans admin de consultation).
+4. ~~**Implémentation du module POS**~~ ✅ terminée le 2026-07-26 (7/7 étapes, `docs/modules/POS-IMPLEMENTATION.md`) — refonte comptoir consolidée après retour utilisateur (pad numérique, PIN seul, une seule page).
 5. ~~Brainstorm module Vue Flux (Hub)~~ ✅ fait le 2026-07-26 (`docs/modules/FLUX.md`) — diagramme de flux Stocks liés → Activité → POS/Boutique, permission `flow.read`, volet financier (coûts/valorisation/CA par node) différé en v2 dédié.
 6. ~~**Implémentation du module Vue Flux**~~ ✅ terminée le 2026-07-26 (V1 réduite : layout statique sans drag, `docs/modules/FLUX.md`) — POS étape 7 (écrans admin) reste à faire.
 7. Brainstorm module RH quand pertinent.
