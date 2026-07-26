@@ -957,6 +957,10 @@ model BomStock {
   tenantId     String
   sheetId      String
   productionId String
+  // Stock physique où le lot produit est rangé — obligatoire pour une production manuelle
+  // (module BOM, voir /bom/[contextId]/production), toujours null pour une production
+  // POS à la demande (produit et vendu dans le même instant, jamais stocké nulle part).
+  stockId      String?
   qtyAvailable Decimal   @db.Decimal(12, 4)
   unitCost     Decimal   @db.Decimal(10, 4)
   producedAt   DateTime
@@ -966,9 +970,11 @@ model BomStock {
   tenant             Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sheet              BomSheet              @relation(fields: [sheetId], references: [id], onDelete: Restrict)
   production         BomProduction         @relation(fields: [productionId], references: [id], onDelete: Restrict)
+  stock              Stock?                @relation(fields: [stockId], references: [id], onDelete: Restrict)
   channelAllocations ProductChannelStock[]
 
   @@index([tenantId, sheetId, qtyAvailable, producedAt])
+  @@index([stockId])
 }
 
 // ═══════════════════════════════════════════════
@@ -1005,6 +1011,7 @@ model Stock {
   tenant                Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   activites             ActiviteStock[]
   lots                  Lot[]
+  bomStocks             BomStock[]
   defaultForIngredients Ingredient[]    @relation("IngredientDefaultStock")
 
   @@unique([tenantId, name])

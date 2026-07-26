@@ -11,6 +11,11 @@ import { calculateBomCost } from '@/lib/bom/cost'
 const produceSchema = z.object({
   nBatches: z.number().positive(),
   notes: z.string().max(500).optional(),
+  // Stock physique de destination du lot produit — obligatoire pour une production manuelle
+  // (voir docs/JOURNAL.md, discipline de stock : toute production doit déclarer où elle est
+  // rangée, comme un achat d'ingrédient déclare son Stock). Jamais requis côté POS à la
+  // demande (src/app/api/v1/pos/sales/route.ts), qui ne stocke jamais rien.
+  stockId: z.string().cuid(),
 })
 
 export async function POST(
@@ -41,7 +46,7 @@ export async function POST(
             context: {
               select: {
                 tenantId: true,
-                activite: { include: { _count: { select: { stocks: true } } } },
+                activite: { include: { stocks: { select: { stockId: true } } } },
               },
             },
           },
@@ -53,8 +58,10 @@ export async function POST(
     if (sheet.level.context.tenantId !== ctx.tenantId)
       return apiError('NOT_FOUND', 'Fiche BOM introuvable', 404)
 
+    const linkedStockIds = sheet.level.context.activite.stocks.map((s) => s.stockId)
+
     // Garde métier : l'activité doit avoir au moins un stock lié pour pouvoir produire.
-    if (sheet.level.context.activite._count.stocks === 0) {
+    if (linkedStockIds.length === 0) {
       return apiError(
         'ACTIVITE_NO_STOCK',
         "Impossible de produire : l'activité n'a aucun stock lié.",
@@ -62,7 +69,17 @@ export async function POST(
       )
     }
 
-    const { nBatches, notes } = parsed.data
+    const { nBatches, notes, stockId } = parsed.data
+
+    // Le Stock de destination doit être lié à l'activité de la fiche — même garde que pour
+    // les ingrédients (defaultStockId), pas un Stock arbitraire d'un autre atelier.
+    if (!linkedStockIds.includes(stockId)) {
+      return apiError(
+        'VALIDATION_ERROR',
+        "Le Stock de destination sélectionné n'est pas lié à l'activité de cette fiche",
+        400
+      )
+    }
 
     // Phase 1 (hors TX) : vérification disponibilité
     const availability = await checkAvailability(id, nBatches, prisma)
@@ -120,6 +137,7 @@ export async function POST(
             tenantId: ctx.tenantId,
             sheetId: id,
             productionId: newProduction.id,
+            stockId,
             qtyAvailable: outputQty,
             unitCost: costResult.unitCost,
             producedAt: new Date(),

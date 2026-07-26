@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { X, Warehouse } from 'lucide-react';
 
 export interface StockDetailRow {
   id: string;
@@ -8,6 +8,7 @@ export interface StockDetailRow {
   qty: number;
   unitCost: number;
   expiry?: string | null;
+  stockName?: string | null;
 }
 
 interface Props {
@@ -57,6 +58,12 @@ export function StockDetailPanel({ open, onClose, title, subtitle, unit, dateLab
                     <div className="font-medium text-choco-600">
                       {dateLabel} : {fmtDate(r.date)}
                     </div>
+                    {r.stockName !== undefined && (
+                      <div className="text-neutral-500 mt-0.5 inline-flex items-center gap-1">
+                        <Warehouse size={11} />
+                        {r.stockName ?? <span className="italic">non renseigné</span>}
+                      </div>
+                    )}
                     {r.expiry && <div className="text-neutral-500 mt-0.5">DLC : {fmtDate(r.expiry)}</div>}
                   </div>
                   <div className="text-right">

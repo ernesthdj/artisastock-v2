@@ -110,7 +110,10 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       include: {
         stocks: {
           where: { qtyAvailable: { gt: 0 } },
-          select: { id: true, qtyAvailable: true, unitCost: true, producedAt: true, dlcDate: true },
+          select: {
+            id: true, qtyAvailable: true, unitCost: true, producedAt: true, dlcDate: true,
+            stockId: true, stock: { select: { id: true, name: true } },
+          },
         },
         products: { select: { id: true } },
       },
@@ -121,6 +124,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       .map((s) => {
         const totalQty = s.stocks.reduce((sum, b) => sum + Number(b.qtyAvailable), 0);
         const weightedCost = s.stocks.reduce((sum, b) => sum + Number(b.qtyAvailable) * Number(b.unitCost), 0);
+        const distinctStockIds = new Set(s.stocks.map((b) => b.stockId ?? 'NONE'));
+        const mixedStock = distinctStockIds.size > 1;
+        const stockName = mixedStock || distinctStockIds.size === 0 ? null : (s.stocks[0].stock?.name ?? null);
         const nearestExpiry = s.stocks
           .filter((b) => b.dlcDate)
           .map((b) => b.dlcDate!.getTime())
@@ -135,6 +141,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
           valorisation: Math.round(weightedCost * 100) / 100,
           batchesCount: s.stocks.length,
           nearestExpiry: nearestExpiry ? new Date(nearestExpiry).toISOString() : null,
+          stockName,
+          mixedStock,
           batches: s.stocks
             .map((b) => ({
               id: b.id,
@@ -142,6 +150,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
               unitCost: Number(b.unitCost),
               producedAt: b.producedAt,
               dlcDate: b.dlcDate,
+              stockName: b.stock?.name ?? null,
             }))
             .sort((a, b) => a.producedAt.getTime() - b.producedAt.getTime()),
         };
@@ -155,7 +164,10 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
         id: true, name: true, priceTTC: true, bomSheetId: true,
         channelStock: {
           where: { channel: 'VITRINE' },
-          select: { qtyAllocated: true, qtyRemaining: true, bomStock: { select: { unitCost: true } } },
+          select: {
+            qtyAllocated: true, qtyRemaining: true,
+            bomStock: { select: { unitCost: true, stockId: true, stock: { select: { name: true } } } },
+          },
         },
       },
     });
@@ -177,6 +189,10 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
           (s, c) => s + Number(c.qtyRemaining) * Number(c.bomStock.unitCost),
           0
         );
+        const distinctStockIds = new Set(p.channelStock.map((c) => c.bomStock.stockId ?? 'NONE'));
+        const vitrineMixedStock = distinctStockIds.size > 1;
+        const vitrineStockName =
+          vitrineMixedStock || distinctStockIds.size === 0 ? null : (p.channelStock[0]?.bomStock.stock?.name ?? null);
 
         return {
           productId: p.id,
@@ -188,6 +204,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
                 allocated: vitrineAllocated,
                 remaining: vitrineRemaining,
                 valorisation: Math.round(vitrineValorisation * 100) / 100,
+                stockName: vitrineStockName,
+                mixedStock: vitrineMixedStock,
               }
             : null,
         };

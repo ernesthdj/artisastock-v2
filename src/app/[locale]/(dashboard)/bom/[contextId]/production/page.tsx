@@ -38,6 +38,10 @@ interface BomContext {
   levels: BomLevel[];
 }
 
+interface ActiviteStockLink {
+  stock: { id: string; name: string };
+}
+
 interface CostLine {
   lineId: string;
   label: string;
@@ -114,6 +118,7 @@ export default function BomProductionPage() {
   const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null);
   const [nBatches, setNBatches] = useState<number>(1);
   const [notes, setNotes] = useState('');
+  const [selectedStockId, setSelectedStockId] = useState<string>('');
   const [simResult, setSimResult] = useState<SimulateResult | null>(null);
   const [simLoading, setSimLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -126,6 +131,16 @@ export default function BomProductionPage() {
       const res = await apiClient.get<BomContext>(`/api/v1/bom/contexts/${contextId}`);
       return res.data;
     },
+  });
+
+  // Stocks liés à l'activité de ce contexte — pour choisir la destination physique du lot produit.
+  const { data: activiteStocks } = useQuery<ActiviteStockLink[]>({
+    queryKey: ['activite-stocks', context?.activiteId],
+    queryFn: async () => {
+      const res = await apiClient.get<{ stocks: ActiviteStockLink[] }>(`/api/v1/activites/${context!.activiteId}`);
+      return res.data.stocks;
+    },
+    enabled: !!context?.activiteId,
   });
 
   const { data: sheets } = useQuery<BomSheet[]>({
@@ -194,12 +209,13 @@ export default function BomProductionPage() {
   }
 
   async function handleProduce() {
-    if (!selectedSheetId || !simResult?.availability.allSufficient) return;
+    if (!selectedSheetId || !simResult?.availability.allSufficient || !selectedStockId) return;
     setProducing(true);
     try {
       await apiClient.post(`/api/v1/bom/sheets/${selectedSheetId}/produce`, {
         nBatches,
         notes: notes || undefined,
+        stockId: selectedStockId,
       });
       toast.success('Production lancée avec succès !');
       setShowConfirm(false);
@@ -403,6 +419,27 @@ export default function BomProductionPage() {
                   )}
                 </div>
 
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-medium text-amber-700 dark:text-amber-400 w-24 shrink-0">
+                    Stock dest. <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedStockId}
+                    onChange={(e) => setSelectedStockId(e.target.value)}
+                    className="flex-1 px-2 py-1.5 text-sm border border-amber-200 dark:border-amber-800 rounded-md bg-white dark:bg-amber-950/20 text-amber-900 dark:text-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  >
+                    <option value="">Choisir le stock où ranger ce lot...</option>
+                    {activiteStocks?.map((s) => (
+                      <option key={s.stock.id} value={s.stock.id}>{s.stock.name}</option>
+                    ))}
+                  </select>
+                </div>
+                {!selectedStockId && (
+                  <p className="text-xs text-amber-500 dark:text-amber-600 italic -mt-1.5 ml-[108px]">
+                    Choisissez où ce lot sera physiquement rangé avant de lancer la production.
+                  </p>
+                )}
+
                 <div className="flex items-start gap-3">
                   <label className="text-xs font-medium text-amber-700 dark:text-amber-400 w-24 shrink-0 pt-1.5">
                     Notes (opt.)
@@ -514,7 +551,7 @@ export default function BomProductionPage() {
                         <div>
                           <button
                             onClick={() => setShowConfirm(true)}
-                            disabled={!simResult.availability.allSufficient || !hasStock}
+                            disabled={!simResult.availability.allSufficient || !hasStock || !selectedStockId}
                             className="flex items-center gap-2 px-5 py-2.5 bg-amber-700 hover:bg-amber-800 disabled:bg-amber-200 dark:disabled:bg-amber-900/40 disabled:text-amber-400 dark:disabled:text-amber-700 text-white text-sm font-semibold rounded-lg transition-colors"
                           >
                             <Play size={14} /> Lancer la production
@@ -522,6 +559,11 @@ export default function BomProductionPage() {
                           {!simResult.availability.allSufficient && (
                             <p className="mt-1.5 text-xs text-amber-500 dark:text-amber-600 italic">
                               Simulez d&apos;abord — aucune pénurie requise pour lancer la production.
+                            </p>
+                          )}
+                          {simResult.availability.allSufficient && !selectedStockId && (
+                            <p className="mt-1.5 text-xs text-amber-500 dark:text-amber-600 italic">
+                              Choisissez le Stock de destination avant de lancer la production.
                             </p>
                           )}
                         </div>
@@ -537,6 +579,7 @@ export default function BomProductionPage() {
                             <div>Qty totale : <strong>
                               {selectedSheet && formatQty(totalOutputQty, selectedSheet.outputUnit as Parameters<typeof formatQty>[1])}
                             </strong></div>
+                            <div>Stock destination : <strong>{activiteStocks?.find((s) => s.stock.id === selectedStockId)?.stock.name}</strong></div>
                             <div>Coût estimé : <strong>{formatCost(simResult.cost.totalCost)}</strong></div>
                           </div>
                           <div className="flex items-center gap-2 pt-1">
