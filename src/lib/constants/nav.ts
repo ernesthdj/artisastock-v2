@@ -25,7 +25,7 @@ export const WORKFLOW_ITEMS: NavItem[] = [
 
 export const STOCK_ITEMS: NavItem[] = [
   { id: 'stocks', label: 'Stocks & liaisons', href: '/stocks-liaisons', icon: Boxes },
-  { id: 'vuestock', label: 'Vue stock global', href: '/vue-stock', icon: Grid },
+  { id: 'vuestock', label: 'Vue stock global', href: '/vue-stock', icon: Grid, permission: 'stocks.read' },
   { id: 'mouvements', label: 'Mouvements', href: '/mouvements', icon: ArrowLeftRight },
   { id: 'ingredients', label: 'Fiches & Stock', href: '/ingredients', icon: Package, permission: 'ingredients.read' },
   { id: 'achats', label: 'Achats', href: '/achats', icon: PackagePlus, permission: 'achats.read' },

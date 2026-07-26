@@ -49,6 +49,20 @@
 
 ## Historique
 
+### [2026-07-27] SESSION — FEAT : Vue Stock Global (3 niveaux — ingrédients, intermédiaires, finaux)
+**Contexte :** demande explicite de l'utilisateur — "tout le projet tourne autour de la discipline du stock", la page était un stub depuis la création du projet (`Empty` placeholder). Aucune autre vue de l'app n'affichait le détail des lots par emplacement physique (`ingredients/page.tsx` n'affiche que le total dénormalisé, pas la répartition par `Stock`).
+**Décisions validées (AskUserQuestion) :** rollup par ligne + détail des lots au clic (pas tout affiché en direct) ; valorisation en € à chaque niveau avec total général en haut de page.
+**Implémentation :**
+- `GET /api/v1/activites/[id]/vue-stock` (nouveau, permission `stocks.read`) — même convention d'agrégation activité-scopée que `flow-summary` (aucun champ stocké dédié, tout dérivé) :
+  - **Ingrédients** groupés par `Stock` physique lié à l'activité (via `ActiviteStock`), quantité/valorisation calculées depuis les vrais `Lot` (pas le champ dénormalisé `Ingredient.stock`) — un même ingrédient peut apparaître dans plusieurs emplacements avec sa quantité locale à chacun. Alerte calculée sur le stock **global** de l'ingrédient (cohérent avec le Hub/flow-summary), pas un seuil par emplacement qui n'existe pas dans le modèle.
+  - **Produits intermédiaires** = fiches BOM avec `BomStock` disponible mais `products.length === 0` (produites, pas encore publiées comme produit vendable).
+  - **Produits finaux** = `Product` publiés, avec pour chacun : POS (toujours "vente à la demande", productibilité live via `checkAvailability` — jamais de stock dormant par design) + Boutique Web (stock VITRINE alloué/restant réel via `ProductChannelStock`, `null` si jamais alloué).
+- `src/components/stock/StockDetailPanel.tsx` (nouveau) — panneau latéral générique (lots ingrédient ou lots de production), réutilisé pour les deux premiers niveaux ; le 3ᵉ niveau (produits finaux) réutilise directement `ProductAllocationPanel` existant au lieu d'un nouveau composant.
+- `src/app/[locale]/(dashboard)/vue-stock/page.tsx` — remplace le stub : 4 KPI (valeur totale, ingrédients, produits, alertes), une Card par Stock physique, puis intermédiaires et finaux, `DataTable.onRowClick` ouvre le panneau de détail correspondant.
+- Permission `stocks.read` ajoutée à l'entrée de nav (défense en profondeur, cohérent avec la règle Phase 10 du scénario de test).
+**Tests réels effectués (scénario Le Shaker) :** 4 stocks affichés avec la bonne répartition par emplacement, valorisation exacte à chaque niveau, 4 alertes détectées correspondant exactement aux ingrédients sous seuil (menthe, rhum, vodka, sirop) ; clic sur un ingrédient → panneau lots (1 lot, date d'achat, coût/unité) ; clic sur un produit fini (Mojito) → `ProductAllocationPanel` existant s'ouvre correctement, affichant "aucun lot de production disponible" (exact — la vente à la demande ne produit jamais de stock dormant).
+**Branche :** master (non commité — en attente de confirmation explicite)
+
 ### [2026-07-27] SESSION — Fix affichage POS : le "X dispo" ne se décrémentait pas au clic
 **Contexte :** signalé par l'utilisateur après le test réel du scénario Le Shaker — en ajoutant des Mojitos/Cosmopolitan au panier, le chiffre "X dispo" affiché sur le bouton produit ne changeait pas tant que la page n'était pas rechargée entièrement (retour au pad + réouverture).
 **Cause :** le badge affichait `product.directQtyRemaining` (valeur brute renvoyée par `/pos/products`) sans jamais tenir compte de la quantité déjà présente dans le panier local (`cart[product.id]`) — un pur oubli d'état dérivé, aucune réactivité manquante côté React Query.
