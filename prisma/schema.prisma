@@ -925,11 +925,12 @@ model BomProduction {
   notes           String?
   producedAt      DateTime @default(now())
 
-  tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  level  BomLevel            @relation(fields: [levelId], references: [id], onDelete: Restrict)
-  sheet  BomSheet            @relation(fields: [sheetId], references: [id], onDelete: Restrict)
-  lines  BomProductionLine[]
-  stocks BomStock[]
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  level        BomLevel            @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  sheet        BomSheet            @relation(fields: [sheetId], references: [id], onDelete: Restrict)
+  lines        BomProductionLine[]
+  stocks       BomStock[]
+  posSaleItems PosSaleItem[]
 
   @@index([tenantId])
   @@index([sheetId])
@@ -1120,13 +1121,17 @@ model PosSaleItem {
   id           String  @id @default(cuid())
   posSaleId    String
   productId    String
+  productionId String? // Production BOM déclenchée à la vente (vente à la demande, canal comptoir) — null si jamais rattaché (legacy)
   quantity     Int
+  unitCost     Decimal @default(0) @db.Decimal(10, 4) // Coût de revient réel (snapshot BomProduction.unitCost) — jamais recalculé après coup
   unitPriceTTC Decimal @db.Decimal(10, 2)
   totalTTC     Decimal @db.Decimal(10, 2)
 
-  posSale PosSale @relation(fields: [posSaleId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  posSale    PosSale        @relation(fields: [posSaleId], references: [id], onDelete: Cascade)
+  product    Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  production BomProduction? @relation(fields: [productionId], references: [id], onDelete: SetNull)
 
   @@index([posSaleId])
   @@index([productId])
+  @@index([productionId])
 }

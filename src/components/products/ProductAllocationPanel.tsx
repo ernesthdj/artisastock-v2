@@ -9,16 +9,10 @@ import { apiClient, ApiError } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { X, Loader2 } from 'lucide-react';
 
-const schema = z
-  .object({
-    bomStockId: z.string().min(1, 'Requis'),
-    vitrineQty: z.coerce.number().min(0),
-    directQty: z.coerce.number().min(0),
-  })
-  .refine((d) => d.vitrineQty > 0 || d.directQty > 0, {
-    message: 'Au moins un canal doit recevoir une quantité > 0',
-    path: ['vitrineQty'],
-  });
+const schema = z.object({
+  bomStockId: z.string().min(1, 'Requis'),
+  vitrineQty: z.coerce.number().min(0).refine((v) => v > 0, 'Doit être supérieur à 0'),
+});
 
 type FormData = z.infer<typeof schema>;
 
@@ -32,6 +26,8 @@ interface BomStockLot {
 interface ChannelStock {
   id: string;
   bomStockId: string;
+  // DIRECT reste lisible pour les allocations historiques (avant la vente à la demande du
+  // 2026-07-26) — plus jamais créé depuis ce panneau, uniquement VITRINE désormais.
   channel: 'VITRINE' | 'DIRECT';
   qtyAllocated: string;
   qtyRemaining: string;
@@ -64,16 +60,15 @@ export function ProductAllocationPanel({ open, onClose, productId, productName }
 
   const { register, handleSubmit, reset, watch, setError, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { bomStockId: '', vitrineQty: 0, directQty: 0 },
+    defaultValues: { bomStockId: '', vitrineQty: 0 },
   });
 
   useEffect(() => {
-    if (open) reset({ bomStockId: '', vitrineQty: 0, directQty: 0 });
+    if (open) reset({ bomStockId: '', vitrineQty: 0 });
   }, [open, productId, reset]);
 
   const selectedBomStockId = watch('bomStockId');
   const vitrineQty = watch('vitrineQty');
-  const directQty = watch('directQty');
 
   const allocatedByLot = useMemo(() => {
     const map = new Map<string, number>();
@@ -85,21 +80,18 @@ export function ProductAllocationPanel({ open, onClose, productId, productName }
 
   const selectedLot = product?.bomSheet.stocks.find((s) => s.id === selectedBomStockId);
   const alreadyAllocated = selectedLot ? allocatedByLot.get(selectedLot.id) ?? 0 : 0;
-  const remaining = selectedLot ? Number(selectedLot.qtyAvailable) - alreadyAllocated - (vitrineQty || 0) - (directQty || 0) : null;
+  const remaining = selectedLot ? Number(selectedLot.qtyAvailable) - alreadyAllocated - (vitrineQty || 0) : null;
 
   const allocateMutation = useMutation({
     mutationFn: (data: FormData) =>
       apiClient.post(`/api/v1/products/${productId}/allocations`, {
         bomStockId: data.bomStockId,
-        allocations: [
-          { channel: 'VITRINE', qty: data.vitrineQty },
-          { channel: 'DIRECT', qty: data.directQty },
-        ],
+        allocations: [{ channel: 'VITRINE', qty: data.vitrineQty }],
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['product-detail', productId] });
       toast.success('Allocation enregistrée');
-      reset({ bomStockId: selectedBomStockId, vitrineQty: 0, directQty: 0 });
+      reset({ bomStockId: selectedBomStockId, vitrineQty: 0 });
     },
     onError: (err: unknown) => {
       if (err instanceof ApiError && err.code === 'INSUFFICIENT_STOCK') {
@@ -156,15 +148,9 @@ export function ProductAllocationPanel({ open, onClose, productId, productName }
                 </div>
 
                 {selectedLot && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-erp-sm font-medium text-choco-600 mb-1">Vitrine (en ligne)</label>
-                      <input {...register('vitrineQty')} type="number" step="0.01" min="0" className="form-input" />
-                    </div>
-                    <div>
-                      <label className="block text-erp-sm font-medium text-choco-600 mb-1">Direct (comptoir)</label>
-                      <input {...register('directQty')} type="number" step="0.01" min="0" className="form-input" />
-                    </div>
+                  <div>
+                    <label className="block text-erp-sm font-medium text-choco-600 mb-1">Vitrine (en ligne)</label>
+                    <input {...register('vitrineQty')} type="number" step="0.01" min="0" className="form-input" />
                   </div>
                 )}
 

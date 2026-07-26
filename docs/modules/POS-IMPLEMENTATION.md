@@ -155,6 +155,8 @@ Après avoir testé les étapes 2-6 en conditions réelles (un seul vendeur acti
 
 ## Étape 5 — Écran de vente : produits + stock DIRECT
 
+> ⚠️ **Superseded le 2026-07-26** — le canal `DIRECT` pré-alloué décrit ici a été remplacé par un calcul de disponibilité en direct sur le stock d'ingrédients (vente à la demande). Voir `docs/modules/POS.md` §0. Section conservée telle quelle comme trace historique de la première implémentation.
+
 **Fichiers concernés** :
 - `src/app/api/v1/pos/products/route.ts` *(nouveau)* — liste des `Product` actifs (`isActive`, `deletedAt: null` — volontairement pas `isVisible`/`isClickCollect`, concepts storefront non pertinents au comptoir) avec leur stock `DIRECT` restant agrégé (même pattern que `vitrineQtyRemaining`, étape 9 de Boutique/Produits, appliqué au canal `DIRECT`)
 - `src/app/[locale]/(dashboard)/pos/vente/page.tsx` *(nouveau)* — même layout dashboard que Caisse/Pointage/Vendeurs (cohérence avec le reste du module, pas de layout tactile dédié pour cette première passe)
@@ -175,6 +177,8 @@ Après avoir testé les étapes 2-6 en conditions réelles (un seul vendeur acti
 ---
 
 ## Étape 6 — Finalisation de la vente
+
+> ⚠️ **Superseded le 2026-07-26** — `consumeChannelStockOrFlagConflict`/canal `DIRECT` remplacés par une vraie `BomProduction`+`consumeFIFO` déclenchée à la vente, avec coût snapshoté sur `PosSaleItem.unitCost`. Voir `docs/modules/POS.md` §0. Section conservée telle quelle comme trace historique de la première implémentation.
 
 **Fichiers concernés** :
 - `src/lib/validators/pos-sale.ts` *(nouveau)* — `{ vendeurId, pin, sessionCaisseId, paymentMethod, items: [{productId, quantity}] }`

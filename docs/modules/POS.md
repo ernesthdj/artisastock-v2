@@ -7,6 +7,22 @@
 
 ---
 
+## 0. Révision d'architecture — Vente à la demande (2026-07-26)
+
+**Le §2 et les UC4/UC5/UC6 ci-dessous décrivent le design d'origine (canal `DIRECT` pré-alloué manuellement, décrémenté à la vente). Ce design est superseded** suite au scénario réel du patron (bar à cocktails) : les recettes du POS ne représentent **pas** des items déjà produits, mais des **fiches BOM** — la vente déclenche une **vraie production à l'instant T** (pas de stock comptoir pré-produit).
+
+Ce qui change concrètement :
+- `GET /pos/products` ne lit plus `ProductChannelStock` (canal `DIRECT`) : il calcule en direct, via `checkAvailability(bomSheetId, 1, prisma)`, le nombre maximum d'unités servables d'après le stock d'ingrédients réel (`directQtyRemaining` = plancher sur l'ingrédient limitant).
+- `POST /pos/sales` ne décrémente plus `ProductChannelStock` : pour chaque ligne, il précalcule le coût (`calculateBomCost`, hors transaction), puis dans une seule transaction crée un vrai `BomProduction` (`notes: "Production automatique — vente comptoir POS"`), appelle `consumeFIFO` (même fonction anti-TOCTOU que "Lancer une production" en BOM — relit les lots au moment de la vente, rejette si le stock a changé depuis le précalcul), puis crée un `BomStock` avec `qtyAvailable: 0` (produit et vendu dans le même instant, jamais en inventaire).
+- `PosSaleItem` gagne deux champs : `productionId` (FK vers le `BomProduction` déclenché, `onDelete: SetNull`) et `unitCost` (coût réel snapshoté au moment de la vente, indépendant du prix de vente) — permet au patron de voir marge réelle par vente (UC9/UC10 étendus), traçable jusqu'au détail de consommation par lot via `BomProductionLine`.
+- Le canal `DIRECT` de `ProductChannelStock` est **retiré du panneau d'allocation produit** (`ProductAllocationPanel.tsx` ne propose plus que `VITRINE`) — le type reste toléré en lecture pour ne pas casser d'éventuelles lignes historiques, mais plus jamais créé.
+- **Boutique Web (canal `VITRINE`) inchangée** : reste du stock pré-produit via `ProductChannelStock`, décrémenté par le webhook Stripe — seule la vente comptoir POS bascule en production à la demande.
+- Conséquence UC5 : le rejet stock insuffisant reste un simple 400 (`INSUFFICIENT_STOCK`), jamais de statut `STOCK_CONFLICT` — cohérent avec le design d'origine, juste vérifié au niveau des ingrédients plutôt qu'au niveau d'un stock produit pré-alloué.
+
+Raison du changement : dans un bar à cocktails, produire d'avance n'a de sens que pour la Boutique Web (livraison de cocktails embouteillés) — au comptoir, chaque commande est unique et doit consommer le stock d'ingrédients au moment exact de la vente, pas un stock intermédiaire qu'il faudrait sans arrêt réapprovisionner manuellement.
+
+---
+
 ## 1. Rappel du besoin
 
 Deuxième module de la cascade, après Boutique/Produits (terminé, 12/12 étapes). Le POS permet une vente comptoir (cash/carte déclaratif, pas d'intégration terminal réel) exécutée par un vendeur identifié, avec la même discipline de stock que la vitrine web : **aucune vente sans stock réellement disponible**, jamais de correction silencieuse. Décision de cadrage prise en amont de ce document (2026-07-25) : le POS **réutilise directement** l'infrastructure `Product`/`ProductChannelStock` construite pour Boutique/Produits — le canal `DIRECT` existe déjà dans le schéma depuis l'étape 1 de ce module, alloué mais jamais consommé faute de module vendeur. Le mode hors-ligne (PWA + sync tolérante) et l'authentification vendeur via `User`/RH sont explicitement **hors scope** de cette première passe (voir §7).
