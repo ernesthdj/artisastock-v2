@@ -163,6 +163,15 @@ export async function consumeFIFO(
           data: { quantityAvailable: { decrement: consumed } },
         })
 
+        // unitCostAtTime doit être un coût par unité de base de l'ingrédient (celle de
+        // qtyConsumed), pas le prix du conditionnement : Lot.unitPrice est HTVA PAR
+        // CONDITIONNEMENT (ex. par bouteille de 70cl), donc totalPriceHT / quantityInitial
+        // (coût réel par cl/g/pièce) — sinon qtyConsumed × unitCostAtTime surestime le coût
+        // d'un facteur = taille du conditionnement.
+        const unitCostAtTime = Number(lot.quantityInitial) > 0
+          ? Number(lot.totalPriceHT) / Number(lot.quantityInitial)
+          : 0
+
         await tx.bomProductionLine.create({
           data: {
             productionId,
@@ -170,7 +179,7 @@ export async function consumeFIFO(
             ingredientId: line.ingredient.id,
             lotId: lot.id,
             qtyConsumed: consumed,
-            unitCostAtTime: Number(lot.unitPrice),
+            unitCostAtTime,
           },
         })
 

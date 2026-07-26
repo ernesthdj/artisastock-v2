@@ -4,7 +4,7 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { UnitOfMeasure } from '@prisma/client'
-import { getPrismaWithTenant } from '@/lib/prisma'
+import { getPrismaWithTenant, prisma } from '@/lib/prisma'
 import {
   withPermission,
   apiCreated,
@@ -13,6 +13,8 @@ import {
   parsePagination,
 } from '@/lib/permissions'
 import { validateSubSheetHierarchy } from '@/lib/bom/validateLine'
+import { checkAvailability } from '@/lib/bom/fifo'
+import { calculateBomCost } from '@/lib/bom/cost'
 
 // Lignes saisies dans le même formulaire que l'en-tête, avant toute persistance (mirroring
 // FrmBomFicheEdit : _lignes en mémoire, insérées avec la fiche en une seule transaction).
@@ -67,8 +69,43 @@ export async function GET(request: NextRequest) {
     }
 
     if (sp.get('isActive') !== null) where['isActive'] = sp.get('isActive') === 'true'
-    // Publier un produit (UC2) exige une fiche ayant du stock produit réel — voir products/route.ts
-    if (sp.get('hasStock') === 'true') where['stocks'] = { some: { qtyAvailable: { gt: 0 } } }
+
+    // Picker de publication produit (UC2) : depuis la révision "vente à la demande" du POS
+    // (docs/modules/POS.md §0), publier un produit n'exige plus un stock produit pré-existant
+    // — seulement que la fiche soit productible dès maintenant depuis le stock d'ingrédients
+    // réel (checkAvailability). La Boutique Web (canal VITRINE) continue d'exiger une vraie
+    // production + allocation après publication, mais ce n'est plus une précondition à la
+    // publication elle-même.
+    if (sp.get('hasStock') === 'true') {
+      const candidates = await db.bomSheet.findMany({
+        where,
+        include: { _count: { select: { lines: true } } },
+        orderBy: { name: 'asc' },
+      })
+
+      const withAvailability = await Promise.all(
+        candidates.map(async (sheet) => {
+          const availability = await checkAvailability(sheet.id, 1, prisma)
+          if (!availability.allSufficient) return null
+          const cost = await calculateBomCost(sheet.id, 1, prisma)
+          const maxBatches = availability.lines.length
+            ? Math.min(
+                ...availability.lines.map((l) =>
+                  l.required > 0 ? Math.floor(l.availableInUnit / l.required) : Number.POSITIVE_INFINITY
+                )
+              )
+            : 0
+          return {
+            ...sheet,
+            availableStock: Number.isFinite(maxBatches) ? Math.max(0, maxBatches) : 0,
+            avgUnitCost: cost.unitCost,
+          }
+        })
+      )
+
+      const producible = withAvailability.filter((s): s is NonNullable<typeof s> => s !== null)
+      return apiPaginated(producible.slice(skip, skip + pageSize), page, pageSize, producible.length)
+    }
 
     const [data, total] = await Promise.all([
       db.bomSheet.findMany({

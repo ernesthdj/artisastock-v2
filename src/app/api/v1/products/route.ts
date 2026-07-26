@@ -4,6 +4,7 @@ import { withPermission, apiCreated, apiError, apiPaginated, parsePagination } f
 import { productCreateSchema } from '@/lib/validators/product';
 import { calculatePriceTTC } from '@/lib/costs';
 import { generateSlug } from '@/lib/utils/slug';
+import { checkAvailability } from '@/lib/bom/fifo';
 
 export async function GET(request: NextRequest) {
   return withPermission(request, 'products.read', async (ctx) => {
@@ -68,15 +69,15 @@ export async function POST(request: NextRequest) {
       return apiError('NOT_FOUND', 'Fiche BOM introuvable', 404);
     }
 
-    // UC2 : publier un produit exige un stock de départ réel — jamais depuis une fiche à sec.
-    const stockAgg = await prisma.bomStock.aggregate({
-      where: { tenantId: ctx.tenantId, sheetId: parsed.data.bomSheetId, qtyAvailable: { gt: 0 } },
-      _sum: { qtyAvailable: true },
-    });
-    if (Number(stockAgg._sum.qtyAvailable ?? 0) <= 0) {
+    // UC2 (révisé — vente à la demande POS, docs/modules/POS.md §0) : publier un produit
+    // n'exige plus un stock produit pré-existant, seulement que la fiche soit productible
+    // dès maintenant depuis le stock d'ingrédients réel — jamais depuis une fiche impossible
+    // à produire. La Boutique Web (VITRINE) exige toujours une vraie allocation après coup.
+    const availability = await checkAvailability(parsed.data.bomSheetId, 1, prisma);
+    if (!availability.allSufficient) {
       return apiError(
         'NO_STOCK',
-        `Aucun stock disponible pour la fiche "${bomSheet.name}" — produisez-la d'abord via le module BOM avant de publier ce produit`,
+        `La fiche "${bomSheet.name}" n'est pas productible avec le stock d'ingrédients actuel — réapprovisionnez avant de publier ce produit`,
         400
       );
     }

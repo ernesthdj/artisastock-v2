@@ -140,17 +140,17 @@ export function ProductPublishSheet({ open, onClose, onSuccess }: Props) {
             </label>
             <select {...register('bomSheetId')} className="form-input" disabled={sheetsLoading}>
               <option value="">
-                {sheetsLoading ? 'Chargement...' : 'Choisir une fiche avec stock disponible...'}
+                {sheetsLoading ? 'Chargement...' : 'Choisir une fiche productible...'}
               </option>
               {sheets?.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} — {s.availableStock} {s.outputUnit.toLowerCase()} disponible(s)
+                  {s.name} — {s.availableStock} {s.outputUnit.toLowerCase()} productible(s) maintenant
                 </option>
               ))}
             </select>
             {!sheetsLoading && sheets?.length === 0 && (
               <p className="mt-1 text-erp-xs text-choco-400 italic">
-                Aucune fiche BOM n&apos;a de stock produit — lancez une production d&apos;abord.
+                Aucune fiche BOM n&apos;est productible avec le stock d&apos;ingrédients actuel — réapprovisionnez d&apos;abord.
               </p>
             )}
             {errors.bomSheetId && <p className="mt-1 text-erp-xs text-framboise-400">{errors.bomSheetId.message}</p>}
@@ -220,7 +220,20 @@ export function ProductPublishSheet({ open, onClose, onSuccess }: Props) {
             <label className="block text-erp-sm font-medium text-choco-600 mb-1">
               Facteur de marge cible <span className="text-neutral-400 font-normal">(optionnel, défaut x{DEFAULT_MARGIN_TARGET})</span>
             </label>
-            <input {...register('marginTargetFactor')} type="number" step="0.1" min="0" placeholder={String(DEFAULT_MARGIN_TARGET)} className="form-input" />
+            <input
+              {...register('marginTargetFactor', {
+                // Un champ optionnel laissé vide arrive comme '' (input non contrôlé) — z.coerce.number()
+                // le convertirait en 0, qui échoue .positive() silencieusement (pas de rendu d'erreur
+                // dédié pour ce champ). '' doit être traité comme "absent", jamais comme "zéro".
+                setValueAs: (v) => (v === '' ? undefined : v),
+              })}
+              type="number"
+              step="0.1"
+              min="0"
+              placeholder={String(DEFAULT_MARGIN_TARGET)}
+              className="form-input"
+            />
+            {errors.marginTargetFactor && <p className="mt-1 text-erp-xs text-framboise-400">{errors.marginTargetFactor.message}</p>}
           </div>
 
           <label className="flex items-center gap-2 text-erp-sm text-choco-600">
