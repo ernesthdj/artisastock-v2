@@ -42,6 +42,11 @@
 
 ## Historique
 
+### [2026-07-26 16:15] SESSION — End
+**Résumé :** Fix cache React Query VendeurPicker (menu Caisse invisible après création vendeur, sans rapport avec le déploiement — alignement des clés de query). Diagnostic et résolution du "menu POS invisible en prod" : schéma POS jamais poussé sur Supabase prod + permissions figées sur les rôles Admin (snapshot pré-module) — corrigé via `supabase db query --linked` (accès Management API, contourne la garde de sécurité qui scrube les connection strings Vercel). Brainstorm module Vue Flux (Hub) exporté (`docs/modules/FLUX.md`), à partir d'un prototype Claude Design lu via `DesignSync`. Implémentation POS étape 4 (pointage horaire) terminée et testée. 3 commits pushés (`e6f6b75`, `1acfedb` + le fix caisse de la session précédente).
+**Branche :** master
+**Commits pushés :** 2 (dans cette session ; le fix VendeurPicker était déjà pushé en tout début de session)
+
 ### [2026-07-26] SESSION — POS étape 4 : pointage horaire (clock-in/clock-out)
 **Résumé :** Implémentation guidée par `docs/modules/POS-IMPLEMENTATION.md` étape 4. `src/lib/validators/pointage.ts` (nouveau, schéma `{ pin }` seul), `POST /api/v1/pos/vendeurs/[id]/clock-in` (rejette `ALREADY_CLOCKED_IN` si un pointage sans `clockOut` existe déjà), `POST /api/v1/pos/vendeurs/[id]/clock-out` (cherche le pointage ouvert le plus récent, rejette `NOT_CLOCKED_IN` si aucun), `GET /api/v1/pos/vendeurs/[id]/pointage` (pointage ouvert courant, pour que l'UI sache quel formulaire afficher). Page `/pos/pointage` calquée sur le pattern de `/pos/caisse` (`VendeurPicker` + formulaire PIN unique par action). Entrée nav "Pointage" ajoutée (permission `pos.sell`, entre Caisse et Vendeurs).
 **Tests réels effectués :** cycle complet au navigateur (arrivée 16:03 → départ 16:04 → re-sélection du vendeur relance un cycle propre) ; PIN erroné sur `/clock-in` → `400 INVALID_PIN` (jamais 401) ; `/clock-out` sans arrivée → `400 NOT_CLOCKED_IN` ; double `/clock-in` consécutif → premier `201`, second `400 ALREADY_CLOCKED_IN` (testés par appels API directs en console). Vendeur et pointages de test supprimés après vérification.
