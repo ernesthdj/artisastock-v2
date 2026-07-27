@@ -88,6 +88,8 @@ export default function CaissePage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pos-caisse-current', unlocked?.id] });
+      queryClient.invalidateQueries({ queryKey: ['pos-caisse-sessions-history'] });
+      queryClient.invalidateQueries({ queryKey: ['flow-summary'] });
       toast.success('Caisse ouverte');
     },
     onError: (err: unknown) => toast.error(err instanceof ApiError ? err.message : 'Une erreur est survenue'),
@@ -101,6 +103,8 @@ export default function CaissePage() {
         closingFloat: Number(closingFloat),
       }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pos-caisse-sessions-history'] });
+      queryClient.invalidateQueries({ queryKey: ['flow-summary'] });
       toast.success('Caisse fermée');
       lock();
     },

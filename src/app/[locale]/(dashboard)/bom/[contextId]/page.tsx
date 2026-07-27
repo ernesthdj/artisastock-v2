@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -10,7 +10,6 @@ import Link from 'next/link';
 import { usePermissions } from '@/hooks/use-permissions';
 import { BomLevelSheet } from '@/components/bom/BomLevelSheet';
 import { BomSheetEditor } from '@/components/bom/BomSheetEditor';
-import { BomProductionModal } from '@/components/bom/BomProductionModal';
 import { IngredientSheet } from '@/components/ingredients/IngredientSheet';
 import { AchatSheet } from '@/components/achats/AchatSheet';
 
@@ -42,6 +41,7 @@ interface BomContext {
 
 export default function BomContextPage() {
   const { locale, contextId } = useParams<{ locale: string; contextId: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { can } = usePermissions();
 
@@ -50,8 +50,6 @@ export default function BomContextPage() {
   const [editingLevel, setEditingLevel] = useState<BomLevel | null>(null);
   const [sheetEditorOpen, setSheetEditorOpen] = useState(false);
   const [selectedSheetId, setSelectedSheetId] = useState<string | null>(null);
-  const [productionModalOpen, setProductionModalOpen] = useState(false);
-  const [productionSheet, setProductionSheet] = useState<{ id: string; name: string } | null>(null);
   const [ingredientSheetOpen, setIngredientSheetOpen] = useState(false);
   const [achatSheetOpen, setAchatSheetOpen] = useState(false);
 
@@ -284,7 +282,7 @@ export default function BomContextPage() {
                     <div className="flex items-center gap-1 shrink-0 ml-3">
                       {can('bom.produce') && (
                         <button
-                          onClick={() => { setProductionSheet({ id: sheet.id, name: sheet.name }); setProductionModalOpen(true); }}
+                          onClick={() => router.push(`/${locale}/bom/${contextId}/production?levelId=${selectedLevelId}&sheetId=${sheet.id}`)}
                           className="flex items-center gap-1 px-2 py-1 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <Play size={11} /> Produire
@@ -340,15 +338,6 @@ export default function BomContextPage() {
           levelId={selectedLevelId}
           levelOrder={selectedLevel?.order ?? 0}
           contextId={contextId}
-        />
-      )}
-
-      {productionSheet && (
-        <BomProductionModal
-          open={productionModalOpen}
-          onClose={() => { setProductionModalOpen(false); setProductionSheet(null); }}
-          sheetId={productionSheet.id}
-          sheetName={productionSheet.name}
         />
       )}
 

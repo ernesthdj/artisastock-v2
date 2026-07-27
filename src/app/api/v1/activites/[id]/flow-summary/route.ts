@@ -84,10 +84,26 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       return { productCount, qtyTotal };
     };
 
+    // Sessions de caisse ouvertes — pas de lien Activité↔SessionCaisse dans le schéma
+    // (Vendeur/SessionCaisse sont tenant-scoped, pas activité-scoped), donc tenant-wide
+    // comme le reste du concept "Point de vente" dans cette vue.
+    const openCaisseSessions = await db.sessionCaisse.findMany({
+      where: { status: 'OPEN' },
+      select: { vendeurId: true, openedAt: true, vendeur: { select: { firstName: true, lastName: true } } },
+      orderBy: { openedAt: 'asc' },
+    });
+
     return apiSuccess({
       activite: { id: activite.id, name: activite.name, ficheCount, alertesCount },
       stocks,
-      pos: channelSummary('DIRECT'),
+      pos: {
+        ...channelSummary('DIRECT'),
+        openSessions: openCaisseSessions.map((s) => ({
+          vendeurId: s.vendeurId,
+          vendeurName: `${s.vendeur.firstName} ${s.vendeur.lastName}`,
+          openedAt: s.openedAt,
+        })),
+      },
       boutique: channelSummary('VITRINE'),
     });
   });

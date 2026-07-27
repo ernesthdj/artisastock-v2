@@ -13,10 +13,15 @@ interface FlowStock {
   name: string;
   alerte: boolean;
 }
+interface OpenCaisseSession {
+  vendeurId: string;
+  vendeurName: string;
+  openedAt: string;
+}
 interface FlowSummary {
   activite: { id: string; name: string; ficheCount: number; alertesCount: number };
   stocks: FlowStock[];
-  pos: { productCount: number; qtyTotal: number };
+  pos: { productCount: number; qtyTotal: number; openSessions: OpenCaisseSession[] };
   boutique: { productCount: number; qtyTotal: number };
 }
 
@@ -126,8 +131,14 @@ export function FlowCanvas({ activiteId }: { activiteId: string }) {
         pos={layout.pos}
         icon={<Wallet size={18} />}
         title="Point de vente"
-        sub={data.pos.productCount > 0 ? `${data.pos.productCount} produit(s) actifs` : 'Aucun produit actif'}
-        dim={data.pos.productCount === 0}
+        sub={
+          data.pos.openSessions.length > 0
+            ? `● ${data.pos.openSessions.length} caisse${data.pos.openSessions.length > 1 ? 's' : ''} ouverte${data.pos.openSessions.length > 1 ? 's' : ''}`
+            : data.pos.productCount > 0
+              ? `${data.pos.productCount} produit(s) actifs`
+              : 'Aucun produit actif'
+        }
+        dim={data.pos.productCount === 0 && data.pos.openSessions.length === 0}
         onMove={(p) => moveNode('pos', p)}
         onClick={() => setSelected({ kind: 'pos' })}
         onDoubleClick={() => router.push('/pos/caisse')}
@@ -189,6 +200,21 @@ export function FlowCanvas({ activiteId }: { activiteId: string }) {
                 <p className="text-erp-xs text-neutral-600">
                   {data.pos.productCount} produit(s) publié(s), {data.pos.qtyTotal} unité(s) au total.
                 </p>
+                <div className="space-y-1">
+                  <span className="block text-[10.5px] font-medium text-choco-600">Caisses ouvertes</span>
+                  {data.pos.openSessions.length === 0 ? (
+                    <p className="text-erp-xs text-neutral-400 italic">Aucune caisse ouverte.</p>
+                  ) : (
+                    data.pos.openSessions.map((s) => (
+                      <div key={s.vendeurId} className="flex items-center justify-between text-erp-xs text-choco-600 pb-1 border-b border-[var(--line-1)] last:border-0">
+                        <span>● {s.vendeurName}</span>
+                        <span className="text-neutral-400">
+                          {new Date(s.openedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
                 <Btn variant="primary" size="sm" onClick={() => router.push('/pos/caisse')} className="w-full justify-center">
                   Ouvrir la Caisse
                 </Btn>

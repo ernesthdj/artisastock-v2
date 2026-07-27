@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -109,6 +109,7 @@ function formatCost(n: number): string {
 
 export default function BomProductionPage() {
   const { locale, contextId } = useParams<{ locale: string; contextId: string }>();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const { activites } = useActivite();
@@ -167,6 +168,20 @@ export default function BomProductionPage() {
 
   const productions: Production[] = (productionsData as unknown as { data: Production[] })?.data ??
     (Array.isArray(productionsData) ? (productionsData as unknown as Production[]) : []);
+
+  // Présélection depuis le lien "Produire" d'une fiche (page /bom/[contextId]) — un seul
+  // chemin de production dans l'app, cette page-ci fait toujours autorité (garde Stock incluse).
+  useEffect(() => {
+    const levelId = searchParams.get('levelId');
+    if (levelId && levelId !== selectedLevelId) setSelectedLevelId(levelId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    const sheetId = searchParams.get('sheetId');
+    if (sheetId && sheets?.some((s) => s.id === sheetId)) setSelectedSheetId(sheetId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, sheets]);
 
   const selectedSheet = sheets?.find((s) => s.id === selectedSheetId);
   const totalOutputQty = selectedSheet ? Number(selectedSheet.outputQty) * nBatches : 0;
