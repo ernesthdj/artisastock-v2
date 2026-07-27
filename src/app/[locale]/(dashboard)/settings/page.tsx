@@ -8,6 +8,7 @@ import { Plus, Edit } from 'lucide-react';
 import { Card, Btn, Pill, Empty, DataTable, type DataTableColumn } from '@/components/ui';
 import { usePermissions } from '@/hooks/use-permissions';
 import { TenantVatRateSheet } from '@/components/settings/TenantVatRateSheet';
+import { DangerZoneCard } from '@/components/settings/DangerZoneCard';
 
 interface Tenant {
   id: string;
@@ -182,6 +183,8 @@ export default function ParamtresPage() {
         desc="Configurez votre espace artisan, facturation, notifications et intégrations. Le reste du module Paramètres est en cours de construction."
         action={<Pill tone="gold">🚧 En développement</Pill>}
       />
+
+      {!isLoading && tenant && can('settings.flush_data') && <DangerZoneCard tenantName={tenant.name} />}
 
       <TenantVatRateSheet
         open={vatSheetOpen}

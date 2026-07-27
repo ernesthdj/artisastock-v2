@@ -50,6 +50,8 @@ export const PERMISSIONS = {
   'pos.manage': 'Gérer les vendeurs (créer, PIN, activer/désactiver)',
   // Module Hub — Vue Flux (diagramme stocks/activité/canaux de vente)
   'flow.read': 'Consulter la vue flux (stocks liés, activité, canaux de vente)',
+  // Module Paramètres — Zone de danger
+  'settings.flush_data': 'Vider les données de test (irréversible)',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
