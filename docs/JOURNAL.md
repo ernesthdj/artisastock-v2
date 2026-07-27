@@ -51,6 +51,11 @@
 
 ## Historique
 
+### [2026-07-27 02:00] SESSION — End
+**Résumé :** Scénario réel "Le Shaker" (bar à cocktails) monté entièrement dans l'app (activité, 4 stocks, 9 ingrédients, achats, fiches BOM Mojito/Cosmopolitan, vendeuse, ventes comptoir) — 3 bugs réels trouvés et corrigés en le testant (gate de publication produit hérité de l'ancien modèle, champ optionnel bloquant silencieusement un formulaire, coût par lot mal calculé dans le FIFO). Bug POS signalé par l'utilisateur (badge de disponibilité ne se décrémentait pas au clic) diagnostiqué et corrigé. Vue Stock Global développée de zéro (stub → page complète à 3 niveaux : ingrédients par emplacement/catégorie, produits intermédiaires, produits finaux), puis itérée deux fois sur retours utilisateur (widgets en grille avec scroll interne, tri des tableaux, séparation visuelle marquée Stocks/Produits, traçabilité du Stock physique de chaque produit — nouveau champ `BomStock.stockId`). 5 commits pushés (f8cac79, fd2d884, 7312a68, bca6803 + le commit POS on-demand de la session précédente).
+**Branche :** master
+**Commits pushés :** 4 (dans cette portion de session ; le flush DB et le rework POS on-demand avaient déjà été pushés en tout début)
+
 ### [2026-07-27] SESSION — FEAT : Vue Stock Global (3 niveaux — ingrédients, intermédiaires, finaux)
 **Contexte :** demande explicite de l'utilisateur — "tout le projet tourne autour de la discipline du stock", la page était un stub depuis la création du projet (`Empty` placeholder). Aucune autre vue de l'app n'affichait le détail des lots par emplacement physique (`ingredients/page.tsx` n'affiche que le total dénormalisé, pas la répartition par `Stock`).
 **Décisions validées (AskUserQuestion) :** rollup par ligne + détail des lots au clic (pas tout affiché en direct) ; valorisation en € à chaque niveau avec total général en haut de page.
