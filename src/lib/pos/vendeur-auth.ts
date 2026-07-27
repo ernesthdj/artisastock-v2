@@ -9,6 +9,22 @@ import { verifyPassword } from '@/lib/auth';
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
 
+// Unicité du PIN par tenant — pinHash est un bcrypt salé (deux PINs identiques produisent
+// des hash différents), donc impossible à garantir par contrainte DB : on doit comparer le
+// PIN candidat à chaque vendeur existant, même approche que identifyVendeurByPin ci-dessous.
+// Vérifié contre TOUS les vendeurs (actifs et désactivés), pas seulement les actifs, pour
+// éviter qu'une réactivation future ne fasse resurgir une collision silencieuse.
+export async function isPinTaken(tenantId: string, pin: string, excludeVendeurId?: string): Promise<boolean> {
+  const vendeurs = await prisma.vendeur.findMany({
+    where: { tenantId, ...(excludeVendeurId ? { id: { not: excludeVendeurId } } : {}) },
+    select: { pinHash: true },
+  });
+  for (const v of vendeurs) {
+    if (await verifyPassword(pin, v.pinHash)) return true;
+  }
+  return false;
+}
+
 export type VendeurAuthFailureCode = 'NOT_FOUND' | 'INACTIVE' | 'LOCKED' | 'INVALID_PIN';
 
 export type VendeurAuthResult =

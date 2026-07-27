@@ -5,6 +5,7 @@ import { getPrismaWithTenant } from '@/lib/prisma';
 import { withPermission, apiSuccess, apiError } from '@/lib/permissions';
 import { vendeurUpdateSchema } from '@/lib/validators/vendeur';
 import { hashPassword } from '@/lib/auth';
+import { isPinTaken } from '@/lib/pos/vendeur-auth';
 
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -26,6 +27,9 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
     const { pin, ...rest } = parsed.data;
     const data: Record<string, unknown> = { ...rest };
     if (pin) {
+      if (await isPinTaken(ctx.tenantId, pin, params.id)) {
+        return apiError('PIN_TAKEN', 'Ce PIN est déjà utilisé par un autre vendeur', 409);
+      }
       data['pinHash'] = await hashPassword(pin);
       data['failedPinAttempts'] = 0;
       data['lockedUntil'] = null;

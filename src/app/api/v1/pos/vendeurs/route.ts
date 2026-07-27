@@ -6,6 +6,7 @@ import { getPrismaWithTenant } from '@/lib/prisma';
 import { withPermission, apiCreated, apiError, apiPaginated, parsePagination } from '@/lib/permissions';
 import { vendeurCreateSchema } from '@/lib/validators/vendeur';
 import { hashPassword } from '@/lib/auth';
+import { isPinTaken } from '@/lib/pos/vendeur-auth';
 
 export async function GET(request: NextRequest) {
   return withPermission(request, ['pos.sell', 'pos.manage'], async (ctx) => {
@@ -41,6 +42,10 @@ export async function POST(request: NextRequest) {
     const parsed = vendeurCreateSchema.safeParse(body);
     if (!parsed.success) {
       return apiError('VALIDATION_ERROR', 'Données invalides', 400, parsed.error.issues);
+    }
+
+    if (await isPinTaken(ctx.tenantId, parsed.data.pin)) {
+      return apiError('PIN_TAKEN', 'Ce PIN est déjà utilisé par un autre vendeur', 409);
     }
 
     const db = getPrismaWithTenant(ctx.tenantId);
