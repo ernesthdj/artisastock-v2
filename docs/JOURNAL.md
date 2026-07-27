@@ -52,6 +52,20 @@
 
 ## Historique
 
+### [2026-07-28] SESSION — FEAT : Module Équipe (Tenant/Users multi-rôles) — brainstorm exporté et implémenté
+**Contexte :** demande de l'utilisateur — clarifier la création de compte (patron = Super Admin d'office) et lui permettre de créer tous les types de collaborateurs (Vendeurs POS, Artisan, RH, Admin délégué...) depuis un seul menu, avec des niveaux d'autorisation différenciés. Cascade de brainstorm suivie (`docs/modules/EQUIPE.md`) avant tout code.
+**Audit qui a changé le scope :** le backend RBAC (`User`/`Role`/`UserInvitation`, permissions granulaires, invitation par email, CRUD de rôles) était déjà entièrement construit et fonctionnel — seul un `GET` d'aperçu d'invitation manquait (non implémenté, jugé hors scope). Deux trous réels : le lien d'invitation par email pointait vers une page inexistante (`/auth/accept-invite/[token]`, 404 pur) et `/settings/team` était un stub statique jamais raccordé (`🚧 En développement`, function name mangled `quipePage`) malgré un lien actif dans le nav — aucune UI ne permettait donc d'inviter qui que ce soit avant cette session.
+**Décisions de cadrage (AskUserQuestion) :** "Vendeurs" = les `Vendeur` POS existants (PIN comptoir), pas un nouveau rôle dashboard ; rôles dashboard pré-configurés (Artisan/RH/Responsable) créés à l'inscription, ajustables ensuite ; invitation par email uniquement (pas de mot de passe temporaire admin) ; écran unique à onglets (Collaborateurs/Vendeurs POS/Rôles), pas une liste mélangée.
+**Implémentation :**
+- `register/route.ts` : 3 rôles créés dans la transaction existante à côté d'`Admin` — `Artisan` (production/stock), `Responsable` (supervision ventes/commandes, correspond exactement au persona déjà anticipé dans `docs/modules/POS.md` UC9/UC10/UC12 mais jamais implémenté faute de rôle), `RH` (`team.read` seul pour l'instant, module RH pas encore construit).
+- `src/lib/constants/permissions.ts` : ajout `PERMISSION_GROUPS` (regroupement par module pour l'UI de cases à cocher des rôles, même découpage que les commentaires existants).
+- `src/app/[locale]/(auth)/accept-invite/[token]/page.tsx` (nouveau) : mirroir de `register`, auto-connexion après acceptation (stockage direct des tokens retournés + `refetch()` du contexte auth).
+- `src/app/[locale]/(dashboard)/settings/team/page.tsx` (réécrit, remplace le stub) : 3 onglets — Collaborateurs (`InviteCollaboratorSheet`, changement de rôle inline, désactivation protégée contre l'auto-désactivation côté UI en plus du blocage serveur existant), Vendeurs POS (contenu de l'ancienne page `/pos/vendeurs` déplacé tel quel, pas réécrit), Rôles (`RoleSheet`, cases à cocher groupées, garde-fou UI sur les rôles `isSystem`).
+- `/pos/vendeurs` (page frontend) supprimée — absorbée comme onglet, un seul chemin pour gérer les vendeurs (même principe que la consolidation Production de la session précédente). Routes API `/api/v1/pos/vendeurs/*` inchangées.
+**Aucune migration de schéma** — le module ne touche que des données de seed et du frontend.
+**Branche :** master (commité — tsc/build verts)
+**Prochaine étape :** tester le flow complet au navigateur (inscription → rôles auto-créés → invitation → acceptation → connexion avec permissions du rôle).
+
 ### [2026-07-27] SESSION — FIX : PIN vendeur non unique (deux vendeurs pouvaient partager le même PIN)
 **Contexte :** signalé par l'utilisateur en créant des vendeurs de test — aucune vérification d'unicité sur le PIN à la création ni à la réinitialisation. Impact réel, pas cosmétique : `identifyVendeurByPin` (pavé numérique comptoir, sans sélection préalable) prend le premier vendeur actif dont le PIN matche — en cas de collision, ventes/pointages/sessions de caisse s'attribuent silencieusement au mauvais vendeur.
 **Cause :** `pinHash` est un bcrypt salé — deux PINs identiques produisent des hash différents, donc aucune contrainte DB (`@unique`) ne peut détecter une collision. Nécessite une comparaison applicative.

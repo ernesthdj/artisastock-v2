@@ -51,6 +51,41 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Modèles de rôle prêts à l'emploi pour l'équipe (docs/modules/EQUIPE.md §6) — l'admin
+    // peut les ajuster ensuite comme n'importe quel rôle custom, rien n'est figé.
+    await tx.role.createMany({
+      data: [
+        {
+          tenantId: tenant.id,
+          name: 'Artisan',
+          description: 'Production et stock — recettes, BOM, ingrédients, achats',
+          permissions: [
+            'ingredients.read', 'ingredients.write',
+            'recipes.read', 'recipes.write',
+            'bom.read', 'bom.write', 'bom.produce',
+            'activites.read', 'stocks.read',
+            'achats.read', 'achats.write',
+          ],
+        },
+        {
+          tenantId: tenant.id,
+          name: 'Responsable',
+          description: 'Supervision — ventes, commandes, factures, équipe (lecture)',
+          permissions: [
+            'pos.read', 'orders.read', 'orders.manage',
+            'invoices.read', 'team.read',
+            'activites.read', 'stocks.read',
+          ],
+        },
+        {
+          tenantId: tenant.id,
+          name: 'RH',
+          description: 'Accès équipe — à étendre quand le module RH existera',
+          permissions: ['team.read'],
+        },
+      ],
+    });
+
     const user = await tx.user.create({
       data: {
         tenantId: tenant.id,

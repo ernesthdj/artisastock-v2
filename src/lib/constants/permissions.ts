@@ -57,3 +57,22 @@ export const PERMISSIONS = {
 export type Permission = keyof typeof PERMISSIONS;
 
 export const ALL_PERMISSIONS: Permission[] = Object.keys(PERMISSIONS) as Permission[];
+
+// Regroupement pour l'UI de gestion des rôles (cases à cocher par module) — même
+// découpage que les commentaires ci-dessus, pas de logique de parsing à maintenir.
+export const PERMISSION_GROUPS: { label: string; keys: Permission[] }[] = [
+  { label: 'Ingrédients & Stock', keys: ['ingredients.read', 'ingredients.write', 'ingredients.delete'] },
+  { label: 'Recettes', keys: ['recipes.read', 'recipes.write', 'recipes.delete'] },
+  { label: 'Produits', keys: ['products.read', 'products.write', 'products.delete', 'products.allocate', 'products.close'] },
+  { label: 'Commandes', keys: ['orders.read', 'orders.manage'] },
+  { label: 'Facturation', keys: ['invoices.read', 'invoices.generate'] },
+  { label: 'Boutique web (CMS)', keys: ['cms.read', 'cms.write', 'cms.publish'] },
+  { label: 'Équipe', keys: ['team.read', 'team.manage'] },
+  { label: 'Paramètres', keys: ['settings.read', 'settings.write', 'settings.flush_data'] },
+  { label: 'BOM (Nomenclature de fabrication)', keys: ['bom.read', 'bom.write', 'bom.produce'] },
+  { label: 'Activités & Stocks', keys: ['activites.read', 'activites.write', 'stocks.read', 'stocks.write'] },
+  { label: 'Achats', keys: ['achats.read', 'achats.write'] },
+  { label: 'Taux de TVA', keys: ['tenant-vat-rates.read', 'tenant-vat-rates.write'] },
+  { label: 'POS (comptoir)', keys: ['pos.sell', 'pos.read', 'pos.manage'] },
+  { label: 'Hub — Vue Flux', keys: ['flow.read'] },
+];
