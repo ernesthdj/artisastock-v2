@@ -52,6 +52,11 @@
 
 ## Historique
 
+### [2026-07-28 23:30] SESSION — End
+**Résumé :** Session dense — fix Vue Flux (permission `flow.read` jamais backfillée en prod), nouvelle Zone de danger Paramètres (flush sélectif des données de test, 6 catégories, ordre de suppression dérivé du schéma), découverte et rattrapage d'une dérive massive du schéma prod vs `schema.prisma` (3 tables entières manquantes + `Product` sur l'ancien schéma pré-BOM — root cause : `git push` ne déploie jamais le schéma, règle #42 ajoutée), fix invalidation cache Caisse + indicateur caisse ouverte/fermée sur le Hub, suppression de la redondance Production (un seul chemin), fix unicité PIN vendeur, et le module Équipe complet (brainstorm `docs/modules/EQUIPE.md` + implémentation : rôles par défaut à l'inscription, page accept-invite, écran Équipe à 3 onglets). Tout testé en vrai contre prod à chaque étape (comptes de test créés, jamais uniquement `tsc`/`build`).
+**Branche :** master
+**Commits pushés :** 7 (c42ca6d, 0745a5f, 9e1e438, 37e2aae, d4ee38c, 55335f9, d1300d8)
+
 ### [2026-07-28] SESSION — FEAT : Module Équipe (Tenant/Users multi-rôles) — brainstorm exporté et implémenté
 **Contexte :** demande de l'utilisateur — clarifier la création de compte (patron = Super Admin d'office) et lui permettre de créer tous les types de collaborateurs (Vendeurs POS, Artisan, RH, Admin délégué...) depuis un seul menu, avec des niveaux d'autorisation différenciés. Cascade de brainstorm suivie (`docs/modules/EQUIPE.md`) avant tout code.
 **Audit qui a changé le scope :** le backend RBAC (`User`/`Role`/`UserInvitation`, permissions granulaires, invitation par email, CRUD de rôles) était déjà entièrement construit et fonctionnel — seul un `GET` d'aperçu d'invitation manquait (non implémenté, jugé hors scope). Deux trous réels : le lien d'invitation par email pointait vers une page inexistante (`/auth/accept-invite/[token]`, 404 pur) et `/settings/team` était un stub statique jamais raccordé (`🚧 En développement`, function name mangled `quipePage`) malgré un lien actif dans le nav — aucune UI ne permettait donc d'inviter qui que ce soit avant cette session.
