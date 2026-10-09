@@ -1,0 +1,219 @@
+{
+  "main": {
+    "id": "606edc79a5e48fb0",
+    "type": "split",
+    "children": [
+      {
+        "id": "7f7708d74a1717eb",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "950ecc315d57b877",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "node_modules/@nodelib/fs.scandir/README.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "README"
+            }
+          },
+          {
+            "id": "ac5ed4e35cbbc3a7",
+            "type": "leaf",
+            "state": {
+              "type": "release-notes",
+              "state": {
+                "currentVersion": "1.13.7"
+              },
+              "icon": "lucide-book-up",
+              "title": "Notes de version 1.13.7"
+            }
+          }
+        ],
+        "currentTab": 1
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "7c89ec536634d767",
+    "type": "split",
+    "children": [
+      {
+        "id": "ddf7d092d0c3b602",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "86d5d117d535fd84",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Explorateur de fichiers"
+            }
+          },
+          {
+            "id": "909b88a45dc0756b",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Rechercher"
+            }
+          },
+          {
+            "id": "b77011a7ff988d7b",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-bookmark",
+              "title": "Signets"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "8a6946602846abef",
+    "type": "split",
+    "children": [
+      {
+        "id": "68fbb20f885596f9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "5103c1c6881402d8",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "node_modules/@nodelib/fs.scandir/README.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Rétroliens"
+            }
+          },
+          {
+            "id": "0530b2a8d23be466",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "node_modules/@nodelib/fs.scandir/README.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Liens sortants"
+            }
+          },
+          {
+            "id": "65cb6bb39832bc13",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Mots-clés"
+            }
+          },
+          {
+            "id": "0b27ca13cc52fb9d",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Toutes les propriétés"
+            }
+          },
+          {
+            "id": "c4021227cafbf558",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "node_modules/@nodelib/fs.scandir/README.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Plan"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Ouvrir le sélecteur rapide": false,
+      "graph:Ouvrir la vue graphique": false,
+      "canvas:Créer une nouvelle toile": false,
+      "daily-notes:Ouvrir la note quotidienne": false,
+      "templates:Insérer le modèle": false,
+      "command-palette:Ouvrir la palette de commandes": false,
+      "bases:Créer une nouvelle base": false
+    }
+  },
+  "active": "ac5ed4e35cbbc3a7",
+  "lastOpenFiles": [
+    "docs/USER-STORIES.md",
+    "node_modules/@bcoe/v8-coverage/LICENSE.md",
+    "graphify-out/GRAPH_REPORT.md",
+    "docs/FONDATION-HORECA.md",
+    "docs/modules/POS-IMPLEMENTATION.md",
+    "docs/modules/POS.md",
+    "docs/modules/FLUX.md",
+    "docs/modules/EQUIPE.md",
+    "docs/modules/BOUTIQUE-PRODUITS-IMPLEMENTATION.md",
+    "docs/modules/BOUTIQUE-PRODUITS.md",
+    "docs/Traduction V1/05-etape4-production.md",
+    "docs/Traduction V1/06-etape5-publier-boutique.md"
+  ]
+}

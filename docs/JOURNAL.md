@@ -63,6 +63,11 @@
 
 ## Historique
 
+### [2026-08-10 00:20] SESSION — End
+**Résumé :** Session dense sans code touché — uniquement audit et documentation. Graphify complet rebuild (1886 nœuds, 3174 arêtes). Audit de sécurité multi-agents (15 failles, 3 critiques non corrigées, `docs/SECURITY-AUDIT.md`). Audit de cohérence métier (45 règles JOURNAL vérifiées contre le code réel). Deux scénarios d'usage réel testés en direct dans le navigateur : boulangerie (`docs/SCENARIO-BOULANGERIE.md` — POS incompatible avec la vente de stock pré-produit, boutique en ligne bloquée par `NEXT_PUBLIC_APP_URL` manquant en prod) et traiteur événementiel cocktails (`docs/SCENARIO-TRAITEUR-COCKTAILS.md` — devis et facturation événementiels inexistants, moteur BOM confirmé générique). 11 règles apprises ajoutées (#43-53).
+**Branche :** master
+**Commits pushés :** 1 (3ec23c7 — docs uniquement : JOURNAL.md + 3 nouveaux rapports ; `graphify-out/` volontairement exclu du repo, ajouté à `.gitignore`)
+
 ### [2026-08-09] SESSION — TEST SCÉNARIO RÉEL : Traiteur événementiel cocktails (devis, facturation, personnel) — aucun fix appliqué
 **Contexte :** demande explicite de l'utilisateur, en suite directe du test boulangerie — tester le persona traiteur événementiel spécialisé cocktails : devis personnalisé par événement (date, 450 invités, prestation cocktail 19h-1h, 4 cocktails, verres loués par le client) et facturation précise incluant la rémunération des barmans (formule 2 minimum + 1 par 200 personnes). L'utilisateur a explicitement anticipé que l'app ne couvrirait probablement pas ce scénario à 100%, l'objectif étant d'identifier précisément quoi ajouter/améliorer.
 **Méthode :** recherche code ciblée en amont (agent Explore, read-only) sur le module Devis, Factures, tout modèle Personnel/Staffing/Événement, et l'applicabilité du moteur BOM aux cocktails — puis vérification live de chaque constat sur un tenant de test dédié (`Traiteur Cocktails Test Claude`) : activité "Traiteur événementiel", 7 ingrédients spiritueux/mixers avec vrais achats (`Lot`), fiche BOM "Negroni" créée et confirmée (3 lignes, cl), pages Devis pâtisserie et Factures visitées en direct.
